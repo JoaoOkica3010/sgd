@@ -5,90 +5,152 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Auditoria;
 use App\Models\Utilizador;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
-/**
- * RF001-RF005: autenticacao, expiracao de sessao e recuperacao de
- * palavra-passe. Ver Plano de Seguranca, seccao 2.
- */
 class AuthController extends Controller
 {
-    public function login(Request $request): JsonResponse
+    /**
+     * POST /auth/login
+     */
+    public function login(Request $request)
     {
         $dados = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
         ]);
 
-        $chaveLimite = 'login:' . $request->ip() . ':' . $dados['email'];
+        $utilizador = Utilizador::where('email', $dados['email'])->first();
 
-        // Bloqueio apos 5 tentativas falhadas (Plano de Seguranca, seccao 2).
-        if (RateLimiter::tooManyAttempts($chaveLimite, 5)) {
+        if (! $utilizador || ! Hash::check($dados['password'], $utilizador->password_hash)) {
             throw ValidationException::withMessages([
-                'email' => 'Demasiadas tentativas falhadas. Tente novamente dentro de 15 minutos.',
+                'email' => ['Credenciais inválidas.'],
             ]);
         }
 
-        $utilizador = Utilizador::where('email', $dados['email'])->where('ativo', true)->first();
-
-        if (! $utilizador || ! Hash::check($dados['password'], $utilizador->password_hash)) {
-            RateLimiter::hit($chaveLimite, 900); // 15 minutos
-            Auditoria::registar(null, 'login_falhado', 'utilizadores', null, ['email' => $dados['email']]);
-
-            throw ValidationException::withMessages(['email' => 'Credenciais invalidas.']);
+        if (! $utilizador->ativo) {
+            throw ValidationException::withMessages([
+                'email' => ['Conta desativada. Contacte o administrador.'],
+            ]);
         }
 
-        RateLimiter::clear($chaveLimite);
+        // RF005: sessão expira ao fim de 15 min de inatividade — controlado
+        // pelo expires_at do token e por middleware que o renova em cada pedido.
+        $token = $utilizador->createToken(
+            name: 'sgd-web',
+            expiresAt: now()->addMinutes(config('sanctum.expiration') ?? 15)
+        );
 
-        if ($utilizador->precisaDuploFator() && ! $request->boolean('duplo_fator_validado')) {
-            return response()->json(['requer_2fa' => true], 200);
-        }
+        $utilizador->forceFill(['ultimo_login_em' => now()])->save();
 
-        $token = $utilizador->createToken('sgd-sessao', ['*'], now()->addMinutes(15))->plainTextToken;
-
-        $utilizador->update(['ultimo_login_em' => now()]);
-        Auditoria::registar($utilizador->id, 'login', 'utilizadores', $utilizador->id);
+        Auditoria::create([
+            'utilizador_id' => $utilizador->id,
+            'acao' => 'login',
+            'entidade_afetada' => 'utilizadores',
+            'entidade_id' => $utilizador->id,
+            'endereco_ip' => $request->ip(),
+            'ocorrido_em' => now(),
+        ]);
 
         return response()->json([
-            'token' => $token,
+            'token' => $token->plainTextToken,
             'utilizador' => [
                 'id' => $utilizador->id,
                 'nome' => $utilizador->nome,
                 'email' => $utilizador->email,
-                'perfil' => $utilizador->perfil->sigla,
+                'perfil' => $utilizador->perfil?->sigla,
+                'duplo_fator_ativo' => $utilizador->duplo_fator_ativo,
             ],
         ]);
     }
 
-    public function logout(Request $request): JsonResponse
+    /**
+     * POST /auth/logout
+     */
+    public function logout(Request $request)
     {
-        Auditoria::registar($request->user()->id, 'logout', 'utilizadores', $request->user()->id);
         $request->user()->currentAccessToken()->delete();
 
-        return response()->json(null, 204);
+        Auditoria::create([
+            'utilizador_id' => $request->user()->id,
+            'acao' => 'logout',
+            'entidade_afetada' => 'utilizadores',
+            'entidade_id' => $request->user()->id,
+            'endereco_ip' => $request->ip(),
+            'ocorrido_em' => now(),
+        ]);
+
+        return response()->json(['message' => 'Sessão terminada.']);
     }
 
-    public function refresh(Request $request): JsonResponse
+    /**
+     * POST /auth/refresh
+     * Renova o token apenas enquanto houver atividade (RF005).
+     */
+    public function refresh(Request $request)
     {
-        // RF005: sessao renovada apenas enquanto houver atividade (15 min).
         $utilizador = $request->user();
-        $request->user()->currentAccessToken()->update(['expires_at' => now()->addMinutes(15)]);
+        $request->user()->currentAccessToken()->delete();
 
-        return response()->json(['expira_em' => now()->addMinutes(15)->toIso8601String()]);
+        $token = $utilizador->createToken(
+            name: 'sgd-web',
+            expiresAt: now()->addMinutes(config('sanctum.expiration') ?? 15)
+        );
+
+        return response()->json(['token' => $token->plainTextToken]);
     }
 
-    public function pedirRecuperacaoPassword(Request $request): JsonResponse
+    /**
+     * POST /auth/password/forgot (RF004)
+     */
+    public function forgotPassword(Request $request)
     {
-        $dados = $request->validate(['email' => ['required', 'email']]);
+        $request->validate(['email' => ['required', 'email']]);
 
-        // Implementacao completa: gerar token de uso unico (30 min) e enviar
-        // e-mail via Notification, sem revelar se o email existe (RF004).
-        Auditoria::registar(null, 'pedido_recuperacao_password', 'utilizadores', null, ['email' => $dados['email']]);
+        // TODO: configurar MAIL_MAILER real; atualmente MAIL_MAILER=log
+        // apenas escreve o e-mail no ficheiro de log (storage/logs/laravel.log).
+        Password::broker('utilizadores')->sendResetLink(
+            $request->only('email')
+        );
 
-        return response()->json(['mensagem' => 'Se o e-mail existir, ira receber instrucoes de recuperacao.']);
+        // Resposta genérica sempre igual, para não revelar se o e-mail existe.
+        return response()->json([
+            'message' => 'Se o e-mail existir, foi enviado um link de recuperação.',
+        ]);
+    }
+
+    /**
+     * POST /auth/password/reset (RF004)
+     */
+    public function resetPassword(Request $request)
+    {
+        $dados = $request->validate([
+            'token' => ['required'],
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $status = Password::broker('utilizadores')->reset(
+            $dados,
+            function (Utilizador $utilizador, string $password) {
+                $utilizador->forceFill([
+                    'password_hash' => Hash::make($password),
+                ])->save();
+
+                // Invalida todas as sessões ativas após reset de password.
+                $utilizador->tokens()->delete();
+            }
+        );
+
+        if ($status !== Password::PASSWORD_RESET) {
+            throw ValidationException::withMessages([
+                'email' => [__($status)],
+            ]);
+        }
+
+        return response()->json(['message' => 'Palavra-passe redefinida com sucesso.']);
     }
 }

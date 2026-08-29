@@ -1,0 +1,94 @@
+/*
+ * tokens.css
+ * ---------------------------------------------------------------
+ * Fonte única de verdade para cores, tipografia e espaçamentos
+ * usados em todo o SGD (Login, Dashboard, ListaDocumentos,
+ * DetalheDocumento, ...).
+ *
+ * Para mudar o aspeto geral da aplicação no futuro (ex.: trocar o
+ * azul-marinho por outra cor, ou o fundo bege por branco), basta
+ * editar os valores aqui — não é preciso mexer em cada página.
+ * ---------------------------------------------------------------
+ */
+
+:root {
+  /* Cores de marca */
+  --cor-navy: #1c2b4a;
+  --cor-navy-suave: #b9c2d6;
+  --cor-terracota: #b5652f;
+  --cor-alerta: #c94f2f;
+
+  /* Fundos */
+  --cor-fundo-pagina: #ffffff;
+  --cor-fundo-cartao: #f5f2e9;
+  --cor-fundo-cartao-claro: #f0ece1;
+  --cor-fundo-campo: #faf8f2;
+  --cor-fundo-branco: #ffffff;
+
+  /* Cartões KPI — faixa lateral: só o crítico usa o accent, resto neutro */
+  --cor-kpi-barra-critica: #d92b1f;
+  --cor-kpi-barra-neutra: #bab6b6;
+  --cor-kpi-numero-critico: #ae1800;
+  --cor-kpi-numero: #1c2b4a;
+
+  /* Texto */
+  --cor-texto-titulo: #1c2b4a;
+  --cor-texto-principal: #2b2b2b;
+  --cor-texto-secundario: #5c5647;
+  --cor-texto-suave: #8a8371;
+  --cor-texto-rotulo: #4a4638;
+
+  /* Bordas */
+  --cor-borda: #ddd6c4;
+  --cor-borda-linha: #e9e4d5;
+  --cor-borda-tabela: #e6e0cf;
+  --cor-borda-suave: #e7e5e5;
+
+  /* Estados dos documentos — tons suaves, texto colorido sobre fundo claro */
+  --cor-estado-submetido-bg: #fdf1e0;
+  --cor-estado-submetido-texto: #92600f;
+  --cor-estado-analise-bg: #e8f3ec;
+  --cor-estado-analise-texto: #1f7a4d;
+  --cor-estado-encaminhado-bg: #e8edfb;
+  --cor-estado-encaminhado-texto: #2854c9;
+  --cor-estado-rejeitado-bg: #fdeceb;
+  --cor-estado-rejeitado-texto: #d92b1f;
+  --cor-estado-validado-bg: #e8f3ec;
+  --cor-estado-validado-texto: #1f7a4d;
+  --cor-estado-arquivado-bg: #f0eeee;
+  --cor-estado-arquivado-texto: #6b6350;
+
+  /* Mensagens */
+  --cor-erro-texto: #b3261e;
+
+  /* Tipografia — famílias */
+  --fonte-titulo: 'Georgia', 'Times New Roman', serif;
+  --fonte-corpo: Arial, Helvetica, sans-serif;
+
+  /* Tipografia — tamanhos
+     Nomeados pelo uso, não pelo valor, para poder ajustar a escala
+     toda de uma vez sem ter de procurar cada px espalhado pelo código. */
+  --texto-titulo-pagina: 28px;   /* títulos principais (Dashboard, Documentos) */
+  --texto-titulo-cartao: 26px;   /* título do cartão de login */
+  --texto-navbar: 16px;          /* selo e título na barra de topo */
+  --texto-subtitulo: 18px;       /* títulos de secção (Histórico, Atividade) */
+  --texto-corpo: 15px;           /* texto principal, valores de dados */
+  --texto-corpo-tabela: 14px;    /* linhas de tabela, listas */
+  --texto-rotulo: 13px;          /* rótulos de campos e formulários */
+  --texto-legenda: 12px;         /* legendas, badges, metadados */
+  --texto-eyebrow: 11px;         /* rótulos em maiúsculas (cartões KPI) */
+
+  /* Tipografia — pesos */
+  --peso-normal: 400;
+  --peso-semibold: 600;
+  --peso-bold: 700;
+
+  /* Espaçamento e forma */
+  --raio-cartao: 16px;
+  --raio-cartao-grande: 24px;
+  --raio-campo: 8px;
+  --raio-badge: 999px;
+  --raio-kpi: 10px;
+  --sombra-cartao: none;
+  --sombra-cartao-forte: 0 20px 40px rgba(0, 0, 0, 0.06);
+}

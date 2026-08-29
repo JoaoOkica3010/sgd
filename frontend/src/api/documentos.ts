@@ -47,6 +47,11 @@ export async function rejeitarDocumento(id: string, justificacao: string) {
   return data;
 }
 
+export async function reabrirDocumento(id: string, motivo: string) {
+  const { data } = await apiClient.post<Documento>(`/documentos/${id}/reabrir`, { motivo });
+  return data;
+}
+
 export async function arquivarDocumento(id: string) {
   const { data } = await apiClient.post<Documento>(`/documentos/${id}/arquivar`);
   return data;

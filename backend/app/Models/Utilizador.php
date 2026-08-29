@@ -3,25 +3,26 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 class Utilizador extends Authenticatable
 {
-    use HasApiTokens, HasFactory, HasUuids, Notifiable, SoftDeletes;
+    use HasApiTokens, HasUuids, SoftDeletes;
 
     protected $table = 'utilizadores';
 
     protected $fillable = [
-        'nome', 'email', 'password_hash', 'perfil_id', 'ativo',
-        'duplo_fator_ativo', 'duplo_fator_segredo',
+        'nome', 'email', 'password_hash', 'perfil_id',
+        'ativo', 'duplo_fator_ativo', 'duplo_fator_segredo',
     ];
 
-    protected $hidden = ['password_hash', 'duplo_fator_segredo'];
+    protected $hidden = [
+        'password_hash', 'duplo_fator_segredo',
+    ];
 
     protected $casts = [
         'ativo' => 'boolean',
@@ -29,7 +30,6 @@ class Utilizador extends Authenticatable
         'ultimo_login_em' => 'datetime',
     ];
 
-    /** Laravel espera "password" — mapeamos para a coluna password_hash (RNF005: hash Argon2id/bcrypt). */
     public function getAuthPassword(): string
     {
         return $this->password_hash;
@@ -37,18 +37,45 @@ class Utilizador extends Authenticatable
 
     public function perfil(): BelongsTo
     {
-        return $this->belongsTo(Perfil::class);
+        return $this->belongsTo(Perfil::class, 'perfil_id');
     }
 
+    public function documentosCriados(): HasMany
+    {
+        return $this->hasMany(Documento::class, 'criado_por');
+    }
+
+    public function anexosCarregados(): HasMany
+    {
+        return $this->hasMany(Anexo::class, 'carregado_por');
+    }
+
+    public function comentarios(): HasMany
+    {
+        return $this->hasMany(Comentario::class, 'autor_id');
+    }
+
+    public function encaminhamentosFeitos(): HasMany
+    {
+        return $this->hasMany(Encaminhamento::class, 'encaminhado_por');
+    }
+
+    public function transicoesRealizadas(): HasMany
+    {
+        return $this->hasMany(EstadoDocumento::class, 'alterado_por');
+    }
+
+    public function temPermissao(string $permissao): bool
+    {
+        return $this->perfil?->temPermissao($permissao) ?? false;
+    }
+
+    /**
+     * Verifica se o utilizador tem um dos perfis (siglas) indicados.
+     * Usado pelas Policies. Ex: $utilizador->possuiPerfil('RECEP', 'SECR')
+     */
     public function possuiPerfil(string ...$siglas): bool
     {
-        return in_array($this->perfil->sigla, $siglas, true);
-    }
-
-    public function precisaDuploFator(): bool
-    {
-        $obrigatorios = explode(',', config('sgd.duplo_fator_perfis_obrigatorios', ''));
-
-        return in_array($this->perfil->sigla, $obrigatorios, true);
+        return in_array($this->perfil?->sigla, $siglas, true);
     }
 }

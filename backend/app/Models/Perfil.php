@@ -2,29 +2,36 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Perfil extends Model
 {
-    use HasFactory;
+protected $table = 'perfis';
 
-   protected $table = 'perfis';    
-   protected $fillable = ['sigla', 'nome_servico', 'permissoes'];
+    protected $fillable = ['sigla', 'nome_servico', 'permissoes'];
 
     protected $casts = [
         'permissoes' => 'array',
     ];
 
-    /** Os 14 servicos previstos na seccao 4.1 do Documento de Analise de Requisitos. */
-    public const SIGLAS = [
-        'RECEP', 'SECR', 'MIN', 'CG', 'SG', 'AJ', 'AAP', 'AIM',
-        'GE', 'DGED', 'ITMA', 'DGVTT', 'IMP', 'ARQ',
-    ];
-
     public function utilizadores(): HasMany
     {
-        return $this->hasMany(Utilizador::class);
+        return $this->hasMany(Utilizador::class, 'perfil_id');
+    }
+
+    public function documentosDestino(): HasMany
+    {
+        return $this->hasMany(Documento::class, 'servico_destino_id');
+    }
+
+    public function encaminhamentos(): HasMany
+    {
+        return $this->hasMany(Encaminhamento::class, 'servico_destino_id');
+    }
+
+    public function temPermissao(string $permissao): bool
+    {
+        return in_array($permissao, $this->permissoes ?? [], true);
     }
 }

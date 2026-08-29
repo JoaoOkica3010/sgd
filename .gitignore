@@ -1,0 +1,34 @@
+﻿# --- Backend (Laravel) ---
+/backend/vendor/
+/backend/.env
+/backend/.env.xampp
+/backend/storage/*.key
+/backend/storage/logs/*.log
+/backend/storage/framework/cache/data/*
+/backend/storage/framework/sessions/*
+/backend/storage/framework/testing/*
+/backend/storage/framework/views/*
+/backend/bootstrap/cache/*.php
+/backend/public/hot
+/backend/public/storage
+/backend/.phpunit.result.cache
+/backend/Homestead.json
+/backend/Homestead.yaml
+
+# --- Frontend (Vite/React) ---
+/frontend/node_modules/
+/frontend/dist/
+/frontend/.env
+/frontend/.env.local
+
+# --- Ficheiros de teste que vimos na pasta backend ---
+/backend/descarregado.pdf
+/backend/teste.pdf
+/backend/Expand
+
+# --- Editor / SO ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

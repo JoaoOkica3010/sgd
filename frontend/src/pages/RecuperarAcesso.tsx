@@ -1,27 +1,26 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../auth/AuthContext";
+import { Link } from "react-router-dom";
+import { apiClient } from "../api/client";
 
-export function Login() {
-  const { login } = useAuth();
-  const navegar = useNavigate();
+export function RecuperarAcesso() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [manterSessao, setManterSessao] = useState(false);
+  const [aEnviar, setAEnviar] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [aCarregar, setACarregar] = useState(false);
+  const [enviado, setEnviado] = useState(false);
 
   async function submeter(e: FormEvent) {
     e.preventDefault();
     setErro(null);
-    setACarregar(true);
+    setAEnviar(true);
     try {
-      await login(email, password);
-      navegar("/dashboard");
+      await apiClient.post("/auth/recuperar-acesso", { email });
+      // Mensagem genérica por segurança: não confirma nem nega se o e-mail
+      // existe no sistema.
+      setEnviado(true);
     } catch {
-      setErro("Credenciais inválidas. Verifique o e-mail e a palavra-passe.");
+      setErro("Não foi possível processar o pedido. Tente novamente mais tarde.");
     } finally {
-      setACarregar(false);
+      setAEnviar(false);
     }
   }
 
@@ -33,6 +32,7 @@ export function Login() {
           <span style={estilos.navbarMarca}>SGD · MTTED</span>
         </div>
       </div>
+
       <div style={estilos.cartaoExterior}>
         <div style={estilos.colunaEsquerda}>
           <div style={estilos.marca}>SGD</div>
@@ -54,56 +54,42 @@ export function Login() {
         <div style={estilos.colunaDireita}>
           <div style={estilos.formuladorContentor}>
             <div style={estilos.eyebrow}>Autenticação</div>
-            <h2 style={estilos.tituloFormulario}>Entrar na plataforma</h2>
+            <h2 style={estilos.tituloFormulario}>Recuperar acesso</h2>
             <p style={estilos.subtituloFormulario}>
-              Use as credenciais institucionais atribuídas ao seu perfil.
+              Indique o seu e-mail institucional. Se existir uma conta associada,
+              enviaremos instruções para repor a palavra-passe.
             </p>
             <div style={estilos.divisor} />
 
-            <form onSubmit={submeter} style={estilos.formulario}>
-              <label style={estilos.campoBloco}>
-                <span style={estilos.rotulo}>E-mail institucional</span>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  style={estilos.campo}
-                />
-              </label>
-
-              <label style={estilos.campoBloco}>
-                <span style={estilos.rotulo}>Palavra-passe</span>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  style={estilos.campo}
-                />
-              </label>
-
-              <div style={estilos.linhaOpcoes}>
-                <label style={estilos.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    checked={manterSessao}
-                    onChange={(e) => setManterSessao(e.target.checked)}
-                    style={estilos.checkbox}
-                  />
-                  Manter sessão neste equipamento
-                </label>
-                <a href="/recuperar-acesso" style={estilos.linkRecuperar}>
-                  Recuperar acesso
-                </a>
+            {enviado ? (
+              <div style={estilos.mensagemSucesso}>
+                Se o e-mail introduzido corresponder a uma conta, receberá em
+                breve instruções para repor a palavra-passe.
               </div>
+            ) : (
+              <form onSubmit={submeter} style={estilos.formulario}>
+                <label style={estilos.campoBloco}>
+                  <span style={estilos.rotulo}>E-mail institucional</span>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    style={estilos.campo}
+                  />
+                </label>
 
-              {erro && <p style={estilos.mensagemErro}>{erro}</p>}
+                {erro && <p style={estilos.mensagemErro}>{erro}</p>}
 
-              <button type="submit" disabled={aCarregar} style={estilos.botao}>
-                {aCarregar ? "A entrar..." : "Entrar"}
-              </button>
-            </form>
+                <button type="submit" disabled={aEnviar} style={estilos.botao}>
+                  {aEnviar ? "A enviar..." : "Enviar instruções"}
+                </button>
+              </form>
+            )}
+
+            <Link to="/login" style={estilos.linkVoltar}>
+              ← Voltar ao login
+            </Link>
           </div>
         </div>
       </div>
@@ -129,9 +115,10 @@ const estilos: Record<string, React.CSSProperties> = {
     backgroundColor: "#1c2b4a",
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 12,
     padding: "16px 32px",
     marginBottom: 20,
+    boxSizing: "border-box",
   },
   navbarMarcaGrupo: {
     display: "flex",
@@ -268,39 +255,19 @@ const estilos: Record<string, React.CSSProperties> = {
     color: "#2b2b2b",
     outline: "none",
   },
-  linhaOpcoes: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 2,
-    flexWrap: "wrap",
-    gap: 8,
-    fontFamily: "'Inter', sans-serif",
-  },
-  checkboxLabel: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 8,
-    fontSize: 13,
-    color: "#2b2b2b",
-    cursor: "pointer",
-  },
-  checkbox: {
-    width: 16,
-    height: 16,
-    accentColor: "#d92b1f",
-  },
-  linkRecuperar: {
-    fontSize: 13,
-    fontWeight: 700,
-    color: "#d92b1f",
-    textDecoration: "none",
-  },
   mensagemErro: {
     margin: 0,
     fontFamily: "'Inter', sans-serif",
     fontSize: 13,
     color: "#d92b1f",
+  },
+  mensagemSucesso: {
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 14,
+    color: "#1f7a4d",
+    backgroundColor: "#e8f3ec",
+    padding: "14px 16px",
+    lineHeight: 1.5,
   },
   botao: {
     marginTop: 8,
@@ -313,5 +280,14 @@ const estilos: Record<string, React.CSSProperties> = {
     border: "none",
     borderRadius: 0,
     cursor: "pointer",
+  },
+  linkVoltar: {
+    display: "inline-block",
+    marginTop: 20,
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 13,
+    fontWeight: 600,
+    color: "#1c2b4a",
+    textDecoration: "none",
   },
 };

@@ -5,14 +5,16 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Comentario extends Model
+class Assinatura extends Model
 {
     public $timestamps = false;
 
-    protected $fillable = ['documento_id', 'autor_id', 'texto', 'estado_criacao', 'criado_em'];
+    protected $table = 'assinaturas_documento';
+
+    protected $fillable = ['documento_id', 'utilizador_id', 'hash_documento', 'assinado_em'];
 
     protected $casts = [
-        'criado_em' => 'datetime',
+        'assinado_em' => 'datetime',
     ];
 
     public function documento(): BelongsTo
@@ -20,8 +22,8 @@ class Comentario extends Model
         return $this->belongsTo(Documento::class, 'documento_id');
     }
 
-    public function autor(): BelongsTo
+    public function utilizador(): BelongsTo
     {
-        return $this->belongsTo(Utilizador::class, 'autor_id');
+        return $this->belongsTo(Utilizador::class, 'utilizador_id');
     }
 }

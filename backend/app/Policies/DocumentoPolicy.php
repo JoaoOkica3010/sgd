@@ -22,10 +22,13 @@ class DocumentoPolicy
         }
 
         if ($utilizador->possuiPerfil('RECEP')) {
-            return $documento->criado_por === $utilizador->id;
+            return in_array($documento->estado_atual, [
+                Documento::ESTADO_RECEPCAO,
+                Documento::ESTADO_SUBMETIDO,
+            ], true);
         }
 
-        if ($utilizador->possuiPerfil('SECR')) {
+        if ($utilizador->possuiPerfil('SECR', 'ADMIN')) {
             return true;
         }
 
@@ -42,7 +45,17 @@ class DocumentoPolicy
 
     public function criar(Utilizador $utilizador): bool
     {
-        return $utilizador->possuiPerfil('RECEP', 'SECR');
+        return $utilizador->possuiPerfil('RECEP', 'SECR', 'ADMIN');
+    }
+
+    /**
+     * Primeira transição do workflow: recepcao -> submetido.
+     * Mesma regra já prevista em WorkflowService::transicoes().
+     */
+    public function submeter(Utilizador $utilizador, Documento $documento): bool
+    {
+        return $utilizador->possuiPerfil('RECEP', 'SECR')
+            && $documento->estado_atual === Documento::ESTADO_RECEPCAO;
     }
 
     public function editar(Utilizador $utilizador, Documento $documento): bool
@@ -80,8 +93,31 @@ class DocumentoPolicy
         return $utilizador->possuiPerfil('ARQ') && $documento->estado_atual === Documento::ESTADO_VALIDADO_SERVICO;
     }
 
+    public function desarquivar(Utilizador $utilizador, Documento $documento): bool
+    {
+        return $utilizador->possuiPerfil('ARQ') && $documento->estado_atual === Documento::ESTADO_ARQUIVADO;
+    }
+
     public function rejeitar(Utilizador $utilizador, Documento $documento): bool
     {
-        return ! $utilizador->possuiPerfil('RECEP', 'ARQ');
+        if ($documento->estado_atual === Documento::ESTADO_SUBMETIDO) {
+            return $utilizador->possuiPerfil('SECR');
+        }
+
+        if (in_array($documento->estado_atual, [Documento::ESTADO_ENCAMINHADO, Documento::ESTADO_EM_ANALISE], true)) {
+            return ! $utilizador->possuiPerfil('RECEP', 'SECR', 'MIN', 'ARQ');
+        }
+
+        return false;
+    }
+
+    /**
+     * Reabrir um documento rejeitado, devolvendo-o ao estado anterior à
+     * rejeição. Reservado a MIN e ADMIN.
+     */
+    public function reabrir(Utilizador $utilizador, Documento $documento): bool
+    {
+        return $documento->estado_atual === Documento::ESTADO_REJEITADO
+            && $utilizador->possuiPerfil('MIN', 'ADMIN');
     }
 }

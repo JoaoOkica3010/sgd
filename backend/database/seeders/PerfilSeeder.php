@@ -11,6 +11,7 @@ class PerfilSeeder extends Seeder
     public function run(): void
     {
         $perfis = [
+            ['sigla' => 'ADMIN', 'nome_servico' => 'Administrador do Sistema'],
             ['sigla' => 'RECEP', 'nome_servico' => 'Recepcionista'],
             ['sigla' => 'SECR', 'nome_servico' => 'Secretariado'],
             ['sigla' => 'MIN', 'nome_servico' => 'Ministro'],
