@@ -13,10 +13,6 @@ export type Observacao = {
   criadoEm: string;
 };
 
-// A assinatura não faz parte do tipo Documento oficial ainda (ver TODO em
-// DetalheDocumento.tsx). Mantemos o mesmo "as any" até esse tipo existir.
-type Assinatura = { utilizador?: { nome: string }; assinado_em: string } | null | undefined;
-
 interface FichaDocumentoProps {
   documento: Documento;
   historico: EstadoHistorico[];
@@ -39,7 +35,7 @@ function formatarData(iso: string) {
 }
 
 export function FichaDocumento({ documento, historico, observacoes, aoImprimir }: FichaDocumentoProps) {
-  const assinatura = (documento as any).assinatura as Assinatura;
+  const assinatura = documento.assinatura;
   const entradaCriacao = historico[0];
 
   function imprimir() {
@@ -62,7 +58,7 @@ export function FichaDocumento({ documento, historico, observacoes, aoImprimir }
             <div style={estilos.assunto}>{documento.assunto}</div>
             <div style={estilos.remetente}>{documento.remetente}</div>
           </div>
-          <button className="no-print" onClick={imprimir} style={estilos.botaoImprimir}>
+          <button className="no-print botao-outline-tema" onClick={imprimir} style={estilos.botaoImprimir}>
             <IconeImpressora />
             Imprimir
           </button>
@@ -78,7 +74,7 @@ export function FichaDocumento({ documento, historico, observacoes, aoImprimir }
           <Campo rotulo="Prioridade" valor={documento.prioridade} />
           <Campo
             rotulo="Criado por"
-            valor={entradaCriacao?.alteradoPor?.nome ?? (documento as any).criadoPor?.nome ?? "—"}
+            valor={entradaCriacao?.alterado_por?.nome ?? (documento as any).criadoPor?.nome ?? "—"}
           />
           <Campo rotulo="Data de criação" valor={formatarData(documento.criado_em)} />
           <Campo
@@ -131,7 +127,7 @@ export function FichaDocumento({ documento, historico, observacoes, aoImprimir }
               <div style={{ paddingBottom: i === historico.length - 1 ? 0 : 18 }}>
                 <div style={estilos.itemEstado}>{ROTULOS_ESTADO[h.estado] ?? h.estado}</div>
                 <div style={estilos.itemMeta}>
-                  {formatarData(h.alterado_em)} · {h.alteradoPor?.nome ?? "—"}
+                  {formatarData(h.alterado_em)} · {h.alterado_por?.nome ?? "—"}
                 </div>
                 {h.justificacao && <div style={estilos.itemJustificacao}>{h.justificacao}</div>}
               </div>
@@ -203,10 +199,7 @@ const estilos: Record<string, React.CSSProperties> = {
     padding: "8px 16px",
     fontSize: 13,
     fontWeight: 700,
-    border: "1.5px solid #d92b1f",
     borderRadius: 8,
-    background: "#ffffff",
-    color: "#d92b1f",
     cursor: "pointer",
   },
   rotuloFicha: {
@@ -220,7 +213,7 @@ const estilos: Record<string, React.CSSProperties> = {
     fontFamily: "Georgia, serif",
     fontSize: 24,
     fontWeight: 700,
-    color: "#1c2b4a",
+    color: "var(--cor-primaria)",
   },
   assunto: {
     fontSize: 14,
@@ -328,7 +321,7 @@ const estilos: Record<string, React.CSSProperties> = {
   itemEstado: {
     fontSize: 13,
     fontWeight: 700,
-    color: "#1c2b4a",
+    color: "var(--cor-primaria)",
   },
   itemMeta: {
     fontSize: 12,

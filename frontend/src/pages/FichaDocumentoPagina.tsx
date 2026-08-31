@@ -90,7 +90,7 @@ function apiParaObservacao(o: ObservacaoApi): Observacao {
     perfil: o.autor_perfil,
     texto: o.texto,
     estadoCriacao: o.estado_criacao,
-    estadoLabel: ROTULOS_ESTADO[o.estado_criacao] ?? o.estado_criacao,
+    estadoLabel: (ROTULOS_ESTADO as Record<string, string>)[o.estado_criacao] ?? o.estado_criacao,
     criadoEm: o.criado_em,
   };
 }

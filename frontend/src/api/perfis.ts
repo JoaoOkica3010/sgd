@@ -1,11 +1,7 @@
 import { apiClient } from "./client";
-import type { Perfil as PerfilSigla } from "../types";
+import type { PerfilResumo } from "../types";
 
-export interface PerfilResumo {
-  id: number;
-  sigla: PerfilSigla;
-  nome_servico: string;
-}
+export type { PerfilResumo };
 
 export async function listarPerfis() {
   const { data } = await apiClient.get<PerfilResumo[]>("/perfis");

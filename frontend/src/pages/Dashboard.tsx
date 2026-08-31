@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { listarDocumentos } from "../api/documentos";
 import { ROTULOS_ESTADO, type Documento } from "../types";
 import { useAuth } from "../auth/AuthContext";
+import { Cabecalho } from "../components/Cabecalho";
+import { Rodape } from "../components/Rodape";
 
 /**
  * NOTAS IMPORTANTES SOBRE OS DADOS DESTE DASHBOARD
@@ -12,26 +14,56 @@ import { useAuth } from "../auth/AuthContext";
  *   - Os contadores por estado (cartões do topo)
  *   - A lista "A aguardar a minha ação" (reaproveita a lógica de
  *     permissões usada em DetalheDocumento.tsx)
+ *   - "Fora de prazo": calculado no cliente a partir de criado_em +
+ *     prioridade (ver PRAZO_DIAS_POR_PRIORIDADE abaixo — regra de
+ *     negócio combinada com o cliente: Muito Urgente = 1 dia,
+ *     Urgente = 2 dias, Normal = 5 dias). Documentos arquivados ou
+ *     rejeitados não contam, mesmo que o prazo já tenha passado.
  *
- * Duas secções do design NÃO têm, para já, uma fonte de dados real
- * no código que me enviou, por isso aparecem com um estado vazio
+ * Uma secção do design NÃO tem, para já, uma fonte de dados real
+ * no código que me enviou, por isso aparece com um estado vazio
  * explicativo em vez de números inventados:
- *   1. "Atividade" — precisa de um feed de auditoria (quem fez o quê
- *      e quando, em todos os documentos). Sugestão: um endpoint tipo
- *      `listarAtividadeRecente(): Promise<AtividadeItem[]>`.
- *   2. "Fora de prazo" — precisa de um campo de prazo/limite por
- *      documento (ex.: `prazo_limite: string`) que não vi no tipo
- *      `Documento` partilhado. Assim que existir, é fácil calcular.
+ *   - "Atividade" — precisa de um feed de auditoria (quem fez o quê
+ *     e quando, em todos os documentos). Sugestão: um endpoint tipo
+ *     `listarAtividadeRecente(): Promise<AtividadeItem[]>`.
  *
- * Quando esses dois pontos existirem na API, basta substituir os
- * blocos assinalados com "TODO" abaixo.
+ * Quando esse ponto existir na API, basta substituir o bloco
+ * assinalado com "TODO" abaixo.
  * ---------------------------------------------------------------
  */
 
 const ITENS_POR_PAGINA = 2;
 
+// Prazo (em dias de calendário, a contar da criação) por prioridade —
+// regra de negócio combinada com o cliente. Documentos já arquivados ou
+// rejeitados não contam como "fora de prazo": já estão resolvidos.
+const PRAZO_DIAS_POR_PRIORIDADE: Record<Documento["prioridade"], number> = {
+  "Muito Urgente": 1,
+  Urgente: 2,
+  Normal: 5,
+};
+
+const ESTADOS_RESOLVIDOS: Documento["estado_atual"][] = ["arquivado", "rejeitado"];
+
+function dataLimite(doc: Documento): Date {
+  const dias = PRAZO_DIAS_POR_PRIORIDADE[doc.prioridade] ?? PRAZO_DIAS_POR_PRIORIDADE.Normal;
+  const limite = new Date(doc.criado_em);
+  limite.setDate(limite.getDate() + dias);
+  return limite;
+}
+
+function estaForaPrazo(doc: Documento): boolean {
+  if (ESTADOS_RESOLVIDOS.includes(doc.estado_atual)) return false;
+  return new Date() > dataLimite(doc);
+}
+
+function diasEmAtraso(doc: Documento): number {
+  const diffMs = new Date().getTime() - dataLimite(doc).getTime();
+  return Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+}
+
 export function Dashboard() {
-  const { utilizador, logout } = useAuth();
+  const { utilizador } = useAuth();
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [aCarregar, setACarregar] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -68,6 +100,12 @@ export function Dashboard() {
 
   const perfil = utilizador?.perfil;
 
+  const foraPrazo = useMemo(() => {
+    return documentos
+      .filter(estaForaPrazo)
+      .sort((a, b) => diasEmAtraso(b) - diasEmAtraso(a));
+  }, [documentos]);
+
   const aguardarAcao = useMemo(() => {
     return documentos.filter((doc) => precisaAcaoDoUtilizador(doc, perfil));
   }, [documentos, perfil]);
@@ -80,30 +118,29 @@ export function Dashboard() {
   );
 
   return (
-    <div style={estilos.pagina}>
-      <header style={estilos.navbar}>
-        <div style={estilos.marca}>
-          <div style={estilos.selo}>M</div>
-          <div>
-            <div style={estilos.marcaTitulo}>SGD · MTTED</div>
-            <div style={estilos.marcaSubtitulo}>Gestão Documental</div>
-          </div>
-        </div>
-        <div style={estilos.utilizadorArea}>
-          <span style={estilos.utilizadorNome}>{utilizador?.nome}</span>
-          {utilizador?.perfil && <span style={estilos.perfilBadge}>{utilizador.perfil}</span>}
-          <button onClick={() => logout()} style={estilos.botaoSessao}>
-            Terminar sessão
-          </button>
-        </div>
-      </header>
+    <div className="pagina-sgd">
+      <Cabecalho
+        extra={
+          utilizador?.perfil === "SADMIN" ? (
+            <Link to="/admin" style={estilos.linkAdmin}>
+              Administração
+            </Link>
+          ) : undefined
+        }
+      />
 
       <main style={estilos.conteudo}>
         <div style={estilos.cabecalhoLista}>
           <h1 style={estilos.titulo}>Dashboard</h1>
-          <Link to="/documentos" style={estilos.linkLista}>
-            Ver todos os documentos →
-          </Link>
+          {utilizador?.perfil === "SADMIN" ? (
+            <Link to="/admin" style={estilos.linkLista}>
+              Gestão de Sistema →
+            </Link>
+          ) : (
+            <Link to="/documentos" style={estilos.linkLista}>
+              Ver todos os documentos →
+            </Link>
+          )}
         </div>
 
         {erro && <p style={{ ...estilos.mensagemEstado, color: "#b3261e" }}>{erro}</p>}
@@ -218,18 +255,30 @@ export function Dashboard() {
               Ainda não há uma fonte de atividade recente ligada a este painel.
             </div>
 
-            {/* TODO: substituir por contagem real quando o Documento tiver
-                um campo de prazo/limite (ex.: prazo_limite). */}
-            <div style={estilos.cartaoForaPrazo}>
+            <div
+              style={{
+                ...estilos.cartaoForaPrazo,
+                backgroundColor: foraPrazo.length > 0 ? "#c94f2f" : "#f5f2e9",
+                color: foraPrazo.length > 0 ? "#ffffff" : "#6b6350",
+              }}
+            >
               <div style={estilos.rotuloForaPrazo}>Fora de prazo</div>
-              <div style={estilos.valorForaPrazo}>—</div>
-              <div style={estilos.legendaForaPrazo}>
-                Sem dados de prazo disponíveis para calcular este indicador.
+              <div style={estilos.valorForaPrazo}>
+                {String(foraPrazo.length).padStart(2, "0")}
               </div>
+              {foraPrazo.length === 0 ? (
+                <div style={estilos.legendaForaPrazo}>Nenhum documento fora do prazo.</div>
+              ) : (
+                <div style={estilos.legendaForaPrazo}>
+                  O mais atrasado ({foraPrazo[0].numero_registo}) está {diasEmAtraso(foraPrazo[0])}{" "}
+                  {diasEmAtraso(foraPrazo[0]) === 1 ? "dia" : "dias"} além do prazo.
+                </div>
+              )}
             </div>
           </section>
         </div>
       </main>
+      <Rodape />
     </div>
   );
 }
@@ -299,7 +348,7 @@ const estilos: Record<string, React.CSSProperties> = {
     fontFamily: "Arial, Helvetica, sans-serif",
   },
   navbar: {
-    backgroundColor: "#1c2b4a",
+    backgroundColor: "var(--cor-primaria)",
     padding: "16px 32px",
     display: "flex",
     alignItems: "center",
@@ -330,7 +379,7 @@ const estilos: Record<string, React.CSSProperties> = {
     fontSize: 16,
   },
   marcaSubtitulo: {
-    color: "#b9c2d6",
+    color: "var(--cor-primaria-suave)",
     fontSize: 12,
   },
   utilizadorArea: {
@@ -360,6 +409,15 @@ const estilos: Record<string, React.CSSProperties> = {
     borderRadius: 8,
     cursor: "pointer",
   },
+  linkAdmin: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: 600,
+    textDecoration: "none",
+    border: "1px solid rgba(255,255,255,0.35)",
+    padding: "8px 14px",
+    borderRadius: 8,
+  },
   conteudo: {
     maxWidth: 1200,
     margin: "0 auto",
@@ -376,12 +434,12 @@ const estilos: Record<string, React.CSSProperties> = {
     fontFamily: "Georgia, 'Times New Roman', serif",
     fontWeight: 700,
     fontSize: 28,
-    color: "#1c2b4a",
+    color: "var(--cor-primaria)",
   },
   linkLista: {
     fontSize: 13,
     fontWeight: 600,
-    color: "#1c2b4a",
+    color: "var(--cor-primaria)",
     textDecoration: "none",
   },
   mensagemEstado: {
@@ -410,7 +468,7 @@ const estilos: Record<string, React.CSSProperties> = {
     fontFamily: "Georgia, 'Times New Roman', serif",
     fontWeight: 700,
     fontSize: 18,
-    color: "#1c2b4a",
+    color: "var(--cor-primaria)",
   },
   linhaLista: {
     display: "flex",
@@ -427,7 +485,7 @@ const estilos: Record<string, React.CSSProperties> = {
   numeroRegisto: {
     fontSize: 14,
     fontWeight: 700,
-    color: "#1c2b4a",
+    color: "var(--cor-primaria)",
   },
   assuntoLista: {
     fontSize: 14,
@@ -459,7 +517,7 @@ const estilos: Record<string, React.CSSProperties> = {
     gap: 12,
     marginTop: 20,
     padding: "10px 16px",
-    backgroundColor: "#1c2b4a",
+    backgroundColor: "var(--cor-primaria)",
     borderRadius: 999,
     width: "fit-content",
     marginLeft: "auto",

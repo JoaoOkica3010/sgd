@@ -47,7 +47,7 @@ class Documento extends Model
 
     public function servicoDestino(): BelongsTo
     {
-        return $this->belongsTo(Perfil::class, 'servico_destino_id');
+        return $this->belongsTo(Servico::class, 'servico_destino_id');
     }
 
     public function criadoPor(): BelongsTo

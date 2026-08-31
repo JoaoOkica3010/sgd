@@ -1,18 +1,20 @@
 import { FichaDocumento } from "../components/FichaDocumento";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   arquivarDocumento, encaminharDocumento, iniciarAnaliseDocumento, obterDocumento,
   obterHistoricoDocumento, reabrirDocumento, rejeitarDocumento, submeterDocumento, validarDocumento,
-  validarServicoDocumento,
+  validarServicoDocumento, assinarDocumento as assinarDocumentoApi,
 } from "../api/documentos";
-import { baixarAnexo, carregarAnexo, obterAnexoBlob } from "../api/anexos";
+import { baixarAnexo, carregarAnexo, obterAnexoBlob, obterPreviewPdfAnexo, atualizarAnexo } from "../api/anexos";
 import {
   listarObservacoes, criarObservacao, editarObservacao, eliminarObservacaoApi, type ObservacaoApi,
 } from "../api/observacoes";
-import { listarPerfis, type PerfilResumo } from "../api/perfis";
-import { ROTULOS_ESTADO, type Documento, type EstadoHistorico } from "../types";
+import { listarServicosAtivos } from "../api/servicos";
+import { ROTULOS_ESTADO, type Documento, type EstadoHistorico, type Servico } from "../types";
 import { useAuth } from "../auth/AuthContext";
+import { Cabecalho } from "../components/Cabecalho";
+import { Rodape } from "../components/Rodape";
 
 type Observacao = {
   id: number;
@@ -26,11 +28,11 @@ type Observacao = {
 
 export function DetalheDocumento() {
   const { id } = useParams<{ id: string }>();
-  const { utilizador, logout } = useAuth();
+  const { utilizador } = useAuth();
 
   const [documento, setDocumento] = useState<Documento | null>(null);
   const [historico, setHistorico] = useState<EstadoHistorico[]>([]);
-  const [perfis, setPerfis] = useState<PerfilResumo[]>([]);
+  const [servicos, setServicos] = useState<Servico[]>([]);
   const [aCarregar, setACarregar] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [aProcessar, setAProcessar] = useState(false);
@@ -60,12 +62,6 @@ export function DetalheDocumento() {
   const [aCarregarPreview, setACarregarPreview] = useState(false);
   const [erroPreview, setErroPreview] = useState<string | null>(null);
 
-  // TODO: falta endpoint próprio (ex.: POST /documentos/{id}/assinar) que
-  // produza a assinatura digital qualificada (PAdES/CAdES) via o serviço de
-  // certificação do Ministro e devolva quem assinou e quando. Por agora fica
-  // em estado local só para validar o fluxo/UI; troque por dados do servidor
-  // quando o endpoint existir.
-  const [assinatura, setAssinatura] = useState<{ por: string; em: string } | null>(null);
   const [modalAssinaturaAberto, setModalAssinaturaAberto] = useState(false);
   const [aAssinar, setAAssinar] = useState(false);
 
@@ -86,7 +82,7 @@ export function DetalheDocumento() {
       perfil: o.autor_perfil,
       texto: o.texto,
       estadoCriacao: o.estado_criacao,
-      estadoLabel: ROTULOS_ESTADO[o.estado_criacao] ?? o.estado_criacao,
+      estadoLabel: (ROTULOS_ESTADO as Record<string, string>)[o.estado_criacao] ?? o.estado_criacao,
       criadoEm: o.criado_em,
     };
   }
@@ -108,14 +104,14 @@ export function DetalheDocumento() {
     setACarregar(true);
     setErro(null);
     try {
-      const [doc, hist, listaPerfis] = await Promise.all([
+      const [doc, hist, listaServicos] = await Promise.all([
         obterDocumento(documentoId),
         obterHistoricoDocumento(documentoId),
-        listarPerfis(),
+        listarServicosAtivos(),
       ]);
       setDocumento(doc);
       setHistorico(hist);
-      setPerfis(listaPerfis);
+      setServicos(listaServicos);
     } catch {
       setErro("Não foi possível carregar o documento. Pode não ter permissão para o consultar.");
     } finally {
@@ -156,6 +152,36 @@ export function DetalheDocumento() {
     }
   }
 
+  // Fluxo "descarregar, editar no Office instalado, carregar de volta":
+  // o input de ficheiro fica escondido e é acionado pelo botão
+  // "Substituir" de cada anexo (inputSubstituirRef guarda a referência
+  // ao <input>, anexoASubstituir guarda para qual anexo é a substituição).
+  const inputSubstituirRef = useRef<HTMLInputElement>(null);
+  const [anexoASubstituir, setAnexoASubstituir] = useState<string | null>(null);
+
+  function pedirSubstituicaoAnexo(anexoId: string) {
+    setAnexoASubstituir(anexoId);
+    inputSubstituirRef.current?.click();
+  }
+
+  async function substituirAnexo(e: FormEvent<HTMLInputElement>) {
+    const ficheiro = e.currentTarget.files?.[0];
+    const anexoId = anexoASubstituir;
+    if (!ficheiro || !anexoId || !id) return;
+    setAProcessar(true);
+    setErro(null);
+    try {
+      await atualizarAnexo(anexoId, ficheiro);
+      setDocumento(await obterDocumento(id));
+    } catch (err: any) {
+      setErro(err?.response?.data?.error?.message ?? "Não foi possível carregar a nova versão do anexo.");
+    } finally {
+      setAProcessar(false);
+      setAnexoASubstituir(null);
+      e.currentTarget.value = "";
+    }
+  }
+
   function alternarServico(perfilId: number) {
     setServicosEscolhidos((atual) =>
       atual.includes(perfilId) ? atual.filter((s) => s !== perfilId) : [...atual, perfilId]
@@ -165,10 +191,11 @@ export function DetalheDocumento() {
   if (aCarregar) {
     return (
       <div style={estilos.pagina}>
-        <BarraTopo utilizador={utilizador} logout={logout} />
+        <Cabecalho />
         <div style={estilos.conteudo}>
           <p style={estilos.mensagemEstado}>A carregar...</p>
         </div>
+        <Rodape />
       </div>
     );
   }
@@ -176,7 +203,7 @@ export function DetalheDocumento() {
   if (!documento) {
     return (
       <div style={estilos.pagina}>
-        <BarraTopo utilizador={utilizador} logout={logout} />
+        <Cabecalho />
         <div style={estilos.conteudo}>
           <p style={{ ...estilos.mensagemEstado, color: "#b3261e" }}>
             {erro ?? "Documento não encontrado."}
@@ -185,6 +212,7 @@ export function DetalheDocumento() {
             ← Voltar à lista
           </Link>
         </div>
+        <Rodape />
       </div>
     );
   }
@@ -209,18 +237,22 @@ export function DetalheDocumento() {
       ["encaminhado", "em_analise"].includes(documento.estado_atual)) ||
     (perfil === "ADMIN" && !documentoTerminal);
 
-  const podeAssinar = perfil === "MIN" && documento.estado_atual === "validado_secretariado" && !assinatura;
+  const podeAssinar = perfil === "MIN" && documento.estado_atual === "validado_secretariado" && !documento.assinatura;
 
   const temAcoes = podeSubmeter || podeValidarSecretariado || podeEncaminhar || podeIniciarAnalise ||
     podeValidarServico || podeArquivar || podeRejeitar || podeAssinar;
 
   async function assinarDocumento() {
+    if (!id) return;
     setAAssinar(true);
+    setErro(null);
     try {
-      // await apiClient.post(`/documentos/${id}/assinar`);
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      setAssinatura({ por: utilizador?.nome ?? "Ministro", em: new Date().toISOString() });
+      await assinarDocumentoApi(id);
+      setDocumento(await obterDocumento(id));
+      setHistorico(await obterHistoricoDocumento(id));
       setModalAssinaturaAberto(false);
+    } catch (e: any) {
+      setErro(e?.response?.data?.message ?? "Não foi possível assinar o documento.");
     } finally {
       setAAssinar(false);
     }
@@ -298,26 +330,66 @@ export function DetalheDocumento() {
     return partes[partes.length - 1]?.toLowerCase() ?? "";
   }
 
-  // Pré-visualiza em modal (PDF e imagens, que o browser sabe renderizar
-  // nativamente num <iframe>/<img>); outros formatos (Word, Excel, ...) não
-  // têm um visualizador nativo, por isso caem para o download direto.
+  function rotuloTipoAnexo(nomeFicheiro: string): string {
+    const ext = extensaoDe(nomeFicheiro);
+    const rotulos: Record<string, string> = {
+      pdf: "PDF",
+      doc: "DOC", docx: "DOC",
+      xls: "XLS", xlsx: "XLS",
+      ppt: "PPT", pptx: "PPT",
+      png: "IMG", jpg: "IMG", jpeg: "IMG", gif: "IMG", webp: "IMG",
+    };
+    return rotulos[ext] ?? ext.toUpperCase().slice(0, 4);
+  }
+
+  const EXTENSOES_OFFICE = ["doc", "docx", "xls", "xlsx", "ppt", "pptx"];
+
+  // Pré-visualiza em modal. PDF e imagens são mostrados tal como o
+  // browser os recebe; Word/Excel/PowerPoint não têm visualizador nativo,
+  // por isso são primeiro convertidos para PDF no servidor (LibreOffice)
+  // e mostrados como se fossem um PDF. Outros formatos, sem conversor
+  // disponível, caem para o download direto.
   async function abrirPreviewAnexo(anexo: { id: string; nome_ficheiro: string }) {
     const ext = extensaoDe(anexo.nome_ficheiro);
     const tipo = ext === "pdf" ? "pdf" : ["png", "jpg", "jpeg", "gif", "webp"].includes(ext) ? "imagem" : null;
-    if (!tipo) {
+    const precisaConversao = !tipo && EXTENSOES_OFFICE.includes(ext);
+
+    if (!tipo && !precisaConversao) {
       baixarAnexo(anexo.id, anexo.nome_ficheiro);
       return;
     }
+
     setErroPreview(null);
     setACarregarPreview(true);
     try {
-      const blob = await obterAnexoBlob(anexo.id);
-      const tipoMime = tipo === "pdf" ? "application/pdf" : `image/${ext === "jpg" ? "jpeg" : ext}`;
+      const blob = precisaConversao
+        ? await obterPreviewPdfAnexo(anexo.id)
+        : await obterAnexoBlob(anexo.id);
+      const tipoFinal: "pdf" | "imagem" = precisaConversao ? "pdf" : (tipo as "pdf" | "imagem");
+      const tipoMime = tipoFinal === "pdf" ? "application/pdf" : `image/${ext === "jpg" ? "jpeg" : ext}`;
       const blobComTipo = blob.type ? blob : new Blob([blob], { type: tipoMime });
       const url = URL.createObjectURL(blobComTipo);
-      setAnexoPreview({ nome: anexo.nome_ficheiro, url, tipo });
-    } catch {
-      setErroPreview("Não foi possível pré-visualizar o anexo.");
+      setAnexoPreview({ nome: anexo.nome_ficheiro, url, tipo: tipoFinal });
+    } catch (e: any) {
+      // A resposta vem sempre como Blob (responseType: "blob"), mesmo
+      // quando o servidor devolve um erro em JSON — por isso é preciso
+      // ler o texto do Blob para chegar à mensagem real do backend.
+      let mensagemServidor: string | undefined;
+      const dadosErro = e?.response?.data;
+      if (dadosErro instanceof Blob) {
+        try {
+          const texto = await dadosErro.text();
+          mensagemServidor = JSON.parse(texto)?.error?.message;
+        } catch {
+          // resposta não era JSON (ex.: erro de rede/HTML de proxy) — ignora
+        }
+      }
+      setErroPreview(
+        mensagemServidor ??
+          (precisaConversao
+            ? "Não foi possível converter este ficheiro para pré-visualização. Pode descarregá-lo em alternativa."
+            : "Não foi possível pré-visualizar o anexo.")
+      );
     } finally {
       setACarregarPreview(false);
     }
@@ -351,7 +423,7 @@ export function DetalheDocumento() {
 
   return (
     <div style={estilos.pagina}>
-      <BarraTopo utilizador={utilizador} logout={logout} />
+      <Cabecalho />
 
       <div style={estilos.faixaTopo}>
         <Link to="/documentos" style={estilos.linkVoltar}>
@@ -420,14 +492,14 @@ export function DetalheDocumento() {
                   </div>
                 </div>
               </div>
-              {assinatura && (
+              {documento.assinatura && (
                 <div style={estilos.seloAssinatura}>
                   <span style={estilos.seloIcone}>✓</span>
                   <div>
                     <div style={estilos.seloTitulo}>Documento assinado digitalmente</div>
                     <div style={estilos.seloMeta}>
-                      {assinatura.por} ·{" "}
-                      {new Date(assinatura.em).toLocaleString("pt-PT", {
+                      {documento.assinatura.utilizador?.nome ?? "—"} ·{" "}
+                      {new Date(documento.assinatura.assinado_em).toLocaleString("pt-PT", {
                         day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
                       })}
                     </div>
@@ -446,6 +518,7 @@ export function DetalheDocumento() {
                         <button
                           disabled={aProcessar}
                           onClick={() => setModalAssinaturaAberto(true)}
+                          className="botao-outline-tema"
                           style={estilos.botaoAcaoTopoContorno}
                         >
                           Assin. Digital
@@ -455,6 +528,7 @@ export function DetalheDocumento() {
                         <button
                           disabled={aProcessar || servicosEscolhidos.length === 0}
                           onClick={() => id && executarAcao(() => encaminharDocumento(id, servicosEscolhidos))}
+                          className="botao-vermelho-alerta"
                           style={estilos.botaoAcaoTopo}
                         >
                           Enviar para
@@ -468,7 +542,7 @@ export function DetalheDocumento() {
                     <button
                       disabled={aProcessar}
                       onClick={() => id && executarAcao(() => submeterDocumento(id))}
-                      style={estilos.botaoPrimario}
+                      className="botao-vermelho-alerta" style={estilos.botaoPrimario}
                     >
                       Submeter para validação
                     </button>
@@ -477,7 +551,7 @@ export function DetalheDocumento() {
                     <button
                       disabled={aProcessar}
                       onClick={() => id && executarAcao(() => validarDocumento(id))}
-                      style={estilos.botaoPrimario}
+                      className="botao-vermelho-alerta" style={estilos.botaoPrimario}
                     >
                       Validar
                     </button>
@@ -486,7 +560,7 @@ export function DetalheDocumento() {
                     <button
                       disabled={aProcessar}
                       onClick={() => id && executarAcao(() => iniciarAnaliseDocumento(id))}
-                      style={estilos.botaoPrimario}
+                      className="botao-vermelho-alerta" style={estilos.botaoPrimario}
                     >
                       Iniciar análise
                     </button>
@@ -495,7 +569,7 @@ export function DetalheDocumento() {
                     <button
                       disabled={aProcessar}
                       onClick={() => id && executarAcao(() => validarServicoDocumento(id))}
-                      style={estilos.botaoPrimario}
+                      className="botao-vermelho-alerta" style={estilos.botaoPrimario}
                     >
                       Validar (concluir análise)
                     </button>
@@ -504,7 +578,7 @@ export function DetalheDocumento() {
                     <button
                       disabled={aProcessar}
                       onClick={() => id && executarAcao(() => arquivarDocumento(id))}
-                      style={estilos.botaoPrimario}
+                      className="botao-vermelho-alerta" style={estilos.botaoPrimario}
                     >
                       Arquivar
                     </button>
@@ -513,7 +587,7 @@ export function DetalheDocumento() {
                     <button
                       disabled={aProcessar}
                       onClick={() => setMostrarRejeicao((v) => !v)}
-                      style={estilos.botaoSecundario}
+                      className="botao-outline-tema" style={estilos.botaoSecundario}
                     >
                       Rejeitar...
                     </button>
@@ -534,7 +608,7 @@ export function DetalheDocumento() {
                     <button
                       disabled={aProcessar || justificacaoRejeicao.trim().length < 5}
                       onClick={() => id && executarAcao(() => rejeitarDocumento(id, justificacaoRejeicao))}
-                      style={estilos.botaoSecundario}
+                      className="botao-outline-tema" style={estilos.botaoSecundario}
                     >
                       Confirmar rejeição
                     </button>
@@ -545,9 +619,9 @@ export function DetalheDocumento() {
                   <div style={estilos.subCartao}>
                     <p style={estilos.rotuloDado}>Encaminhar para:</p>
                     <div style={estilos.gridChecklist}>
-                      {perfis.filter((p) => p.sigla !== "MIN" && p.sigla !== "RECEP").map((p, indice) => (
+                      {servicos.map((s, indice) => (
                         <label
-                          key={p.id}
+                          key={s.id}
                           style={{
                             ...estilos.linhaCheckbox,
                             backgroundColor: Math.floor(indice / 2) % 2 === 1 ? "#f7f6f6" : "#ffffff",
@@ -555,10 +629,10 @@ export function DetalheDocumento() {
                         >
                           <input
                             type="checkbox"
-                            checked={servicosEscolhidos.includes(p.id)}
-                            onChange={() => alternarServico(p.id)}
+                            checked={servicosEscolhidos.includes(s.id)}
+                            onChange={() => alternarServico(s.id)}
                           />
-                          {" "}{p.nome_servico} ({p.sigla})
+                          {" "}{s.nome}
                         </label>
                       ))}
                     </div>
@@ -574,7 +648,7 @@ export function DetalheDocumento() {
             <div style={estilos.cabecalhoObservacoes}>
               <p style={estilos.notaObservacoes}>Visíveis a todos os perfis com acesso a este documento.</p>
               {podeObservar && (
-                <button onClick={abrirModalNovaObservacao} style={estilos.botaoNovaObservacao}>
+                <button onClick={abrirModalNovaObservacao} className="botao-vermelho-alerta" style={estilos.botaoNovaObservacao}>
                   + Observação
                 </button>
               )}
@@ -676,11 +750,18 @@ export function DetalheDocumento() {
 
             <section style={estilos.cartao}>
               <h2 style={estilos.tituloCartao}>Anexos</h2>
+              <input
+                ref={inputSubstituirRef}
+                type="file"
+                onChange={substituirAnexo}
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                style={{ display: "none" }}
+              />
               <div>
                 {(documento.anexos ?? []).map((anexo, indice) => (
                   <div key={anexo.id} style={{ ...estilos.linhaAnexo, backgroundColor: indice % 2 === 1 ? "#f7f6f6" : "#ffffff" }}>
                     <div style={estilos.anexoInfo}>
-                      <span style={estilos.iconeAnexo}>PDF</span>
+                      <span style={estilos.iconeAnexo}>{rotuloTipoAnexo(anexo.nome_ficheiro)}</span>
                       <div>
                         <button
                           onClick={() => abrirPreviewAnexo(anexo)}
@@ -693,12 +774,24 @@ export function DetalheDocumento() {
                         </div>
                       </div>
                     </div>
-                    <button
-                      onClick={() => abrirPreviewAnexo(anexo)}
-                      style={estilos.botaoDescarregar}
-                    >
-                      👁️ Ver
-                    </button>
+                    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                      {podeAnexar && (
+                        <button
+                          onClick={() => pedirSubstituicaoAnexo(anexo.id)}
+                          disabled={aProcessar}
+                          style={estilos.botaoDescarregar}
+                          title="Descarregar, editar no Word/Excel e carregar a versão editada"
+                        >
+                          ↑ Substituir
+                        </button>
+                      )}
+                      <button
+                        onClick={() => abrirPreviewAnexo(anexo)}
+                        style={estilos.botaoDescarregar}
+                      >
+                        👁️ Ver
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {(!documento.anexos || documento.anexos.length === 0) && (
@@ -742,10 +835,10 @@ export function DetalheDocumento() {
             />
             <div style={estilos.contagemCaracteres}>{textoObservacao.length}/500</div>
             <div style={estilos.modalAcoes}>
-              <button onClick={() => setModalAberto(false)} style={estilos.botaoSecundario}>
+              <button onClick={() => setModalAberto(false)} className="botao-outline-tema" style={estilos.botaoSecundario}>
                 Cancelar
               </button>
-              <button disabled={aGravarObservacao} onClick={gravarObservacao} style={estilos.botaoPrimario}>
+              <button disabled={aGravarObservacao} onClick={gravarObservacao} className="botao-vermelho-alerta" style={estilos.botaoPrimario}>
                 {aGravarObservacao ? "A gravar..." : "Gravar"}
               </button>
             </div>
@@ -776,14 +869,14 @@ export function DetalheDocumento() {
                   setModalReaberturaAberto(false);
                   setMotivoReabertura("");
                 }}
-                style={estilos.botaoSecundario}
+                className="botao-outline-tema" style={estilos.botaoSecundario}
               >
                 Cancelar
               </button>
               <button
                 disabled={aReabrir || motivoReabertura.trim().length < 5}
                 onClick={reabrirProcesso}
-                style={estilos.botaoPrimario}
+                className="botao-vermelho-alerta" style={estilos.botaoPrimario}
               >
                 {aReabrir ? "A reabrir..." : "Reabrir processo"}
               </button>
@@ -844,10 +937,10 @@ export function DetalheDocumento() {
               legal e não pode ser desfeita.
             </p>
             <div style={estilos.modalAcoes}>
-              <button onClick={() => setModalAssinaturaAberto(false)} style={estilos.botaoSecundario}>
+              <button onClick={() => setModalAssinaturaAberto(false)} className="botao-outline-tema" style={estilos.botaoSecundario}>
                 Cancelar
               </button>
-              <button disabled={aAssinar} onClick={assinarDocumento} style={estilos.botaoPrimario}>
+              <button disabled={aAssinar} onClick={assinarDocumento} className="botao-vermelho-alerta" style={estilos.botaoPrimario}>
                 {aAssinar ? "A assinar..." : "Confirmar e assinar"}
               </button>
             </div>
@@ -855,28 +948,8 @@ export function DetalheDocumento() {
         </div>
       )}
 
+      <Rodape />
     </div>
-  );
-}
-
-function BarraTopo({ utilizador, logout }: { utilizador: any; logout: () => void }) {
-  return (
-    <header style={estilos.navbar}>
-      <div style={estilos.marca}>
-        <div style={estilos.selo}>M</div>
-        <div>
-          <div style={estilos.marcaTitulo}>SGD · MTTED</div>
-          <div style={estilos.marcaSubtitulo}>Gestão Documental</div>
-        </div>
-      </div>
-      <div style={estilos.utilizadorArea}>
-        <span style={estilos.utilizadorNome}>{utilizador?.nome}</span>
-        {utilizador?.perfil && <span style={estilos.perfilBadge}>{utilizador.perfil}</span>}
-        <button onClick={() => logout()} style={estilos.botaoSessao}>
-          Terminar sessão
-        </button>
-      </div>
-    </header>
   );
 }
 
@@ -921,7 +994,7 @@ const estilos: Record<string, React.CSSProperties> = {
     fontFamily: "Arial, Helvetica, sans-serif",
   },
   navbar: {
-    backgroundColor: "#1c2b4a",
+    backgroundColor: "var(--cor-primaria)",
     padding: "16px 32px",
     display: "flex",
     alignItems: "center",
@@ -952,7 +1025,7 @@ const estilos: Record<string, React.CSSProperties> = {
     fontSize: 16,
   },
   marcaSubtitulo: {
-    color: "#b9c2d6",
+    color: "var(--cor-primaria-suave)",
     fontSize: 12,
   },
   utilizadorArea: {
@@ -1048,10 +1121,7 @@ const estilos: Record<string, React.CSSProperties> = {
     padding: "10px 16px",
     fontSize: 13,
     fontWeight: 700,
-    border: "none",
     borderRadius: 8,
-    backgroundColor: "#d92b1f",
-    color: "#ffffff",
     cursor: "pointer",
     whiteSpace: "nowrap",
   },
@@ -1076,7 +1146,7 @@ const estilos: Record<string, React.CSSProperties> = {
   autorObservacao: {
     fontSize: 13,
     fontWeight: 700,
-    color: "#1c2b4a",
+    color: "var(--cor-primaria)",
   },
   perfilObservacao: {
     fontWeight: 400,
@@ -1180,7 +1250,7 @@ const estilos: Record<string, React.CSSProperties> = {
     margin: "0 0 4px",
     fontSize: 17,
     fontWeight: 700,
-    color: "#1c2b4a",
+    color: "var(--cor-primaria)",
   },
   modalSubtitulo: {
     margin: "0 0 16px",
@@ -1242,7 +1312,7 @@ const estilos: Record<string, React.CSSProperties> = {
   modalPreviewNome: {
     fontSize: 14,
     fontWeight: 700,
-    color: "#1c2b4a",
+    color: "var(--cor-primaria)",
   },
   modalPreviewAcoes: {
     display: "flex",
@@ -1300,7 +1370,7 @@ const estilos: Record<string, React.CSSProperties> = {
     fontFamily: "Georgia, 'Times New Roman', serif",
     fontWeight: 700,
     fontSize: 26,
-    color: "#1c2b4a",
+    color: "var(--cor-primaria)",
     letterSpacing: 0.5,
   },
   assunto: {
@@ -1483,10 +1553,7 @@ const estilos: Record<string, React.CSSProperties> = {
     padding: "10px 16px",
     fontSize: 13,
     fontWeight: 700,
-    border: "none",
     borderRadius: 8,
-    backgroundColor: "#d92b1f",
-    color: "#ffffff",
     cursor: "pointer",
     width: 150,
     height: 38,
@@ -1497,10 +1564,7 @@ const estilos: Record<string, React.CSSProperties> = {
     padding: "10px 16px",
     fontSize: 13,
     fontWeight: 700,
-    border: "1.5px solid #d92b1f",
     borderRadius: 8,
-    backgroundColor: "#ffffff",
-    color: "#d92b1f",
     cursor: "pointer",
     width: 150,
     height: 38,
@@ -1520,10 +1584,7 @@ const estilos: Record<string, React.CSSProperties> = {
     padding: "12px 18px",
     fontSize: 14,
     fontWeight: 700,
-    border: "none",
     borderRadius: 8,
-    backgroundColor: "#d92b1f",
-    color: "#ffffff",
     cursor: "pointer",
     minWidth: 110,
   },
@@ -1531,10 +1592,7 @@ const estilos: Record<string, React.CSSProperties> = {
     padding: "12px 18px",
     fontSize: 14,
     fontWeight: 700,
-    border: "1px solid #d92b1f",
     borderRadius: 8,
-    backgroundColor: "transparent",
-    color: "#d92b1f",
     cursor: "pointer",
     minWidth: 110,
   },
@@ -1598,7 +1656,7 @@ const estilos: Record<string, React.CSSProperties> = {
   itemEstado: {
     fontSize: 14,
     fontWeight: 700,
-    color: "#1c2b4a",
+    color: "var(--cor-primaria)",
   },
   itemMeta: {
     fontSize: 12,

@@ -4,12 +4,16 @@ use App\Http\Controllers\Api\AnexoController;
 use App\Http\Controllers\Api\AuditoriaController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ComentarioController;
+use App\Http\Controllers\Api\ConfigController;
 use App\Http\Controllers\Api\DocumentoController;
 use App\Http\Controllers\Api\PerfilController;
+use App\Http\Controllers\Api\ServicoController;
 use App\Http\Controllers\Api\UtilizadorController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
+
+    Route::get('/config', [ConfigController::class, 'index']);
 
     Route::post('/auth/login', [AuthController::class, 'login']);
     Route::post('/auth/password/forgot', [AuthController::class, 'forgotPassword']);
@@ -29,6 +33,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/documentos/{documento}/submeter', [DocumentoController::class, 'submeter']);
         Route::post('/documentos/{documento}/validar', [DocumentoController::class, 'validar']);
         Route::post('/documentos/{documento}/encaminhar', [DocumentoController::class, 'encaminhar']);
+        Route::post('/documentos/{documento}/assinar', [DocumentoController::class, 'assinar']);
         Route::post('/documentos/{documento}/rejeitar', [DocumentoController::class, 'rejeitar']);
         Route::post('/documentos/{documento}/reabrir', [DocumentoController::class, 'reabrir']);
         Route::post('/documentos/{documento}/arquivar', [DocumentoController::class, 'arquivar']);
@@ -41,6 +46,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/documentos/{documento}/anexos', [AnexoController::class, 'index']);
         Route::get('/anexos/{anexo}/download', [AnexoController::class, 'download']);
         Route::get('/anexos/{anexo}/preview-pdf', [AnexoController::class, 'previewPdf']);
+        Route::post('/anexos/{anexo}/nova-versao', [AnexoController::class, 'atualizar']);
         Route::delete('/anexos/{anexo}', [AnexoController::class, 'destroy']);
 
         // ---- Observações (comentários) ----
@@ -55,6 +61,15 @@ Route::prefix('v1')->group(function () {
         Route::put('/utilizadores/{utilizador}', [UtilizadorController::class, 'update']);
         Route::get('/perfis', [PerfilController::class, 'index']);
         Route::get('/auditoria', [AuditoriaController::class, 'index']);
+
+        // ---- Serviços (SADMIN) ----
+        Route::get('/servicos', [ServicoController::class, 'index']);
+        Route::get('/servicos/todos', [ServicoController::class, 'indexAdmin']);
+        Route::post('/servicos', [ServicoController::class, 'store']);
+        Route::put('/servicos/{servico}', [ServicoController::class, 'update']);
+
+        // ---- Configuração de identidade visual (SADMIN) ----
+        Route::put('/config', [ConfigController::class, 'update']);
     });
 
 });

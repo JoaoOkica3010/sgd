@@ -51,7 +51,7 @@ a {
 
 /* Barra de topo */
 .navbar-sgd {
-  background-color: var(--cor-navy);
+  background-color: var(--cor-primaria);
   padding: 16px 32px;
   display: flex;
   align-items: center;
@@ -86,7 +86,7 @@ a {
 }
 
 .navbar-subtitulo {
-  color: var(--cor-navy-suave);
+  color: var(--cor-primaria-suave);
   font-size: var(--texto-legenda);
 }
 
@@ -178,7 +178,7 @@ a {
   font-weight: var(--peso-bold);
   border: none;
   border-radius: var(--raio-campo);
-  background-color: var(--cor-navy);
+  background-color: var(--cor-primaria);
   color: var(--cor-fundo-branco);
   cursor: pointer;
 }
@@ -286,4 +286,58 @@ a {
 .mensagem-estado-sgd {
   color: var(--cor-texto-suave);
   font-size: var(--texto-corpo-tabela);
+}
+
+/* Rodapé fixo, presente em todas as páginas pós-login */
+.rodape-espaco {
+  height: 44px;
+}
+
+.rodape-sgd {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 40px;
+  background-color: #ffffff;
+  border-top: 2px solid var(--cor-primaria);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 24px;
+  font-size: var(--texto-legenda);
+  color: var(--cor-texto-suave);
+  z-index: 50;
+}
+
+/* Botões de ação: vermelho de alerta fixo em todos os temas para a ação
+   primária/urgência (ex.: "Enviar para", "Entrar"); contorno na cor do
+   tema ativo para a ação secundária (ex.: "Assin. Digital"). O vermelho
+   funciona como cor de ação universal e já contrasta bem com as três
+   cores de tema — não deve mudar com o seletor de tema. */
+.botao-vermelho-alerta {
+  background-color: #EC3013;
+  color: #ffffff;
+  border: none;
+}
+.botao-vermelho-alerta:hover:not(:disabled) {
+  background-color: #B0402A;
+}
+.botao-vermelho-alerta:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.botao-outline-tema {
+  background-color: #ffffff;
+  color: var(--cor-primaria);
+  border: 1.5px solid var(--cor-primaria);
+}
+.botao-outline-tema:hover:not(:disabled) {
+  background-color: var(--cor-primaria);
+  color: #ffffff;
+}
+.botao-outline-tema:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }

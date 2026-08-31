@@ -1,4 +1,4 @@
-import { apiClient } from "./client";
+import { apiClient } from "../api/client";
 
 export type ObservacaoApi = {
   id: number;

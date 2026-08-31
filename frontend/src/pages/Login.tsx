@@ -1,9 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { useMarca } from "../config/marca";
+import { Rodape } from "../components/Rodape";
 
 export function Login() {
   const { login } = useAuth();
+  const marca = useMarca();
   const navegar = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,8 +32,8 @@ export function Login() {
     <div style={estilos.pagina}>
       <div style={estilos.navbarTopo}>
         <div style={estilos.navbarMarcaGrupo}>
-          <div style={estilos.navbarSelo}>M</div>
-          <span style={estilos.navbarMarca}>SGD · MTTED</span>
+          <div style={estilos.navbarSelo}>{marca.selo}</div>
+          <span style={estilos.navbarMarca}>{marca.titulo}</span>
         </div>
       </div>
       <div style={estilos.cartaoExterior}>
@@ -100,13 +103,14 @@ export function Login() {
 
               {erro && <p style={estilos.mensagemErro}>{erro}</p>}
 
-              <button type="submit" disabled={aCarregar} style={estilos.botao}>
+              <button type="submit" disabled={aCarregar} className="botao-vermelho-alerta" style={estilos.botao}>
                 {aCarregar ? "A entrar..." : "Entrar"}
               </button>
             </form>
           </div>
         </div>
       </div>
+      <Rodape />
     </div>
   );
 }
@@ -126,7 +130,7 @@ const estilos: Record<string, React.CSSProperties> = {
   navbarTopo: {
     width: "100%",
     maxWidth: 970,
-    backgroundColor: "#1c2b4a",
+    backgroundColor: "var(--cor-primaria)",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -167,7 +171,7 @@ const estilos: Record<string, React.CSSProperties> = {
     overflow: "hidden",
   },
   colunaEsquerda: {
-    backgroundColor: "#d92b1f",
+    backgroundColor: "var(--cor-primaria)",
     display: "flex",
     flexDirection: "column",
     padding: "40px 56px",
@@ -227,7 +231,7 @@ const estilos: Record<string, React.CSSProperties> = {
     fontFamily: "'Inter', sans-serif",
     fontWeight: 800,
     fontSize: 27,
-    color: "#1c2b4a",
+    color: "var(--cor-primaria)",
   },
   subtituloFormulario: {
     margin: "0 0 20px",
@@ -308,9 +312,6 @@ const estilos: Record<string, React.CSSProperties> = {
     fontFamily: "'Inter', sans-serif",
     fontSize: 14,
     fontWeight: 700,
-    color: "#ffffff",
-    backgroundColor: "#d92b1f",
-    border: "none",
     borderRadius: 0,
     cursor: "pointer",
   },

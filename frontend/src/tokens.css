@@ -12,9 +12,12 @@
  */
 
 :root {
-  /* Cores de marca */
-  --cor-navy: #1c2b4a;
-  --cor-navy-suave: #b9c2d6;
+  /* Cores de marca — a primária muda em runtime via o seletor de tema
+     (ver src/config/tema.tsx); os valores aqui são o estado inicial,
+     antes do JavaScript aplicar a preferência guardada (evita um
+     "flash" da cor errada ao carregar a página). */
+  --cor-primaria: #6E2A66;
+  --cor-primaria-suave: #d9bcd4;
   --cor-terracota: #b5652f;
   --cor-alerta: #c94f2f;
 
@@ -29,10 +32,10 @@
   --cor-kpi-barra-critica: #d92b1f;
   --cor-kpi-barra-neutra: #bab6b6;
   --cor-kpi-numero-critico: #ae1800;
-  --cor-kpi-numero: #1c2b4a;
+  --cor-kpi-numero: var(--cor-primaria);
 
   /* Texto */
-  --cor-texto-titulo: #1c2b4a;
+  --cor-texto-titulo: var(--cor-primaria);
   --cor-texto-principal: #2b2b2b;
   --cor-texto-secundario: #5c5647;
   --cor-texto-suave: #8a8371;

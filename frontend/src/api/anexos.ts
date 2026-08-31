@@ -38,6 +38,28 @@ export async function obterAnexoBlob(anexoId: string): Promise<Blob> {
   return resposta.data;
 }
 
+// Anexos Word/Excel/PowerPoint não têm visualizador nativo no browser —
+// este endpoint converte-os para PDF no servidor (via LibreOffice) para
+// poderem ser pré-visualizados no mesmo modal usado para PDFs.
+export async function obterPreviewPdfAnexo(anexoId: string): Promise<Blob> {
+  const resposta = await apiClient.get(`/anexos/${anexoId}/preview-pdf`, { responseType: "blob" });
+  return resposta.data;
+}
+
 export async function removerAnexo(anexoId: string) {
   await apiClient.delete(`/anexos/${anexoId}`);
+}
+
+// Substitui o ficheiro de um anexo já existente (mesmo anexo, novo
+// conteúdo) — fluxo de "descarregar, editar no Office, carregar de
+// volta". Mantém o mesmo id e histórico de comentários/ver, só troca o
+// ficheiro.
+export async function atualizarAnexo(anexoId: string, ficheiro: File) {
+  const formData = new FormData();
+  formData.append("ficheiro", ficheiro);
+
+  const { data } = await apiClient.post<Anexo>(`/anexos/${anexoId}/nova-versao`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
 }

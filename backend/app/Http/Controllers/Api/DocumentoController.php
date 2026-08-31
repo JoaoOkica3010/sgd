@@ -7,6 +7,7 @@ use App\Models\Documento;
 use App\Services\WorkflowService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 
 class DocumentoController extends Controller
 {
@@ -31,9 +32,10 @@ class DocumentoController extends Controller
         } elseif ($utilizador->possuiPerfil('MIN')) {
             $query->whereIn('estado_atual', [Documento::ESTADO_VALIDADO_SECRETARIADO, Documento::ESTADO_ENCAMINHADO]);
         } elseif (! $utilizador->possuiPerfil('SECR', 'ADMIN')) {
-            $query->where(function ($q) use ($utilizador) {
-                $q->where('servico_destino_id', $utilizador->perfil_id)
-                    ->orWhereHas('encaminhamentos', fn ($e) => $e->where('servico_destino_id', $utilizador->perfil_id));
+            $servicoId = $utilizador->perfil?->servico_id;
+            $query->where(function ($q) use ($servicoId) {
+                $q->where('servico_destino_id', $servicoId)
+                    ->orWhereHas('encaminhamentos', fn ($e) => $e->where('servico_destino_id', $servicoId));
             });
         }
 
@@ -54,7 +56,7 @@ class DocumentoController extends Controller
             'numero_referencia' => ['nullable', 'string', 'max:100'],
             'observacoes' => ['nullable', 'string'],
             'prioridade' => ['nullable', 'in:Normal,Urgente,Muito Urgente'],
-            'servico_destino_id' => ['nullable', 'exists:perfis,id'],
+            'servico_destino_id' => ['nullable', 'exists:servicos,id'],
         ]);
 
         $dados['numero_registo'] = Documento::gerarNumeroRegisto();
@@ -87,7 +89,7 @@ class DocumentoController extends Controller
             'numero_referencia' => ['nullable', 'string', 'max:100'],
             'observacoes' => ['nullable', 'string'],
             'prioridade' => ['sometimes', 'in:Normal,Urgente,Muito Urgente'],
-            'servico_destino_id' => ['nullable', 'exists:perfis,id'],
+            'servico_destino_id' => ['nullable', 'exists:servicos,id'],
         ]);
 
         $documento->update($dados);
@@ -113,27 +115,56 @@ class DocumentoController extends Controller
         return $this->workflow->transitar($documento, Documento::ESTADO_SUBMETIDO, $request->user());
     }
 
+    /**
+     * POST /documentos/{documento}/encaminhar
+     *
+     * Aceita um ou vários serviços de destino em simultâneo (o Ministro
+     * pode encaminhar o mesmo documento a mais do que um serviço de uma
+     * só vez) — por isso "encaminhamentos" não tem restrição de
+     * unicidade por documento. servico_destino_id em "documentos" fica
+     * com o primeiro destino escolhido (uso de exibição/edição); a
+     * visibilidade de cada serviço já é determinada a partir da tabela
+     * "encaminhamentos" (ver DocumentoPolicy::ver / index() acima).
+     */
     public function encaminhar(Request $request, Documento $documento)
     {
         Gate::authorize('encaminhar', $documento);
 
         $dados = $request->validate([
-            'servico_destino_id' => ['required', 'exists:perfis,id'],
+            'servico_destino_ids' => ['required', 'array', 'min:1'],
+            'servico_destino_ids.*' => [
+                Rule::exists('servicos', 'id')->where('ativo', true),
+            ],
+            'comentario' => ['nullable', 'string'],
         ]);
 
-        $documento->servico_destino_id = $dados['servico_destino_id'];
+        $servicoDestinoIds = array_values(array_unique($dados['servico_destino_ids']));
+
+        $documento->servico_destino_id = $servicoDestinoIds[0];
         $documento->save();
 
         $documento = $this->workflow->transitar($documento, Documento::ESTADO_ENCAMINHADO, $request->user());
 
-        \App\Models\Encaminhamento::create([
-            'documento_id' => $documento->id,
-            'servico_destino_id' => $dados['servico_destino_id'],
-            'encaminhado_por' => $request->user()->id,
-            'encaminhado_em' => now(),
-        ]);
+        foreach ($servicoDestinoIds as $servicoDestinoId) {
+            \App\Models\Encaminhamento::create([
+                'documento_id' => $documento->id,
+                'servico_destino_id' => $servicoDestinoId,
+                'encaminhado_por' => $request->user()->id,
+                'encaminhado_em' => now(),
+            ]);
+        }
 
-        return $documento->fresh();
+        if (! empty($dados['comentario'])) {
+            \App\Models\Comentario::create([
+                'documento_id' => $documento->id,
+                'autor_id' => $request->user()->id,
+                'texto' => '[Encaminhamento] '.$dados['comentario'],
+                'estado_criacao' => $documento->estado_atual,
+                'criado_em' => now(),
+            ]);
+        }
+
+        return $documento->fresh()->load('encaminhamentos.servicoDestino');
     }
 
     public function rejeitar(Request $request, Documento $documento)

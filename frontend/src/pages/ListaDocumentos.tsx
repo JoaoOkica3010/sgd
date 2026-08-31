@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { listarDocumentos } from "../api/documentos";
 import { ROTULOS_ESTADO, type Documento } from "../types";
 import { useAuth } from "../auth/AuthContext";
+import { Cabecalho } from "../components/Cabecalho";
+import { Rodape } from "../components/Rodape";
 
 const FILTROS_ESTADO = ["Todos", "Submetido", "Encaminhado", "Rejeitado"] as const;
 type FiltroEstado = (typeof FILTROS_ESTADO)[number];
@@ -10,7 +12,7 @@ type FiltroEstado = (typeof FILTROS_ESTADO)[number];
 const PERFIS_PODEM_CRIAR = ["RECEP", "SECR", "ADMIN"];
 
 export function ListaDocumentos() {
-  const { utilizador, logout } = useAuth();
+  const { utilizador } = useAuth();
   const podeCriar = !!utilizador?.perfil && PERFIS_PODEM_CRIAR.includes(utilizador.perfil);
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [termo, setTermo] = useState("");
@@ -42,23 +44,8 @@ export function ListaDocumentos() {
   }, [documentos, filtro]);
 
   return (
-    <div style={estilos.pagina}>
-      <header style={estilos.navbar}>
-        <div style={estilos.marca}>
-          <div style={estilos.selo}>M</div>
-          <div>
-            <div style={estilos.marcaTitulo}>SGD · MTTED</div>
-            <div style={estilos.marcaSubtitulo}>Gestão Documental</div>
-          </div>
-        </div>
-        <div style={estilos.utilizadorArea}>
-          <span style={estilos.utilizadorNome}>{utilizador?.nome}</span>
-          {utilizador?.perfil && <span style={estilos.perfilBadge}>{utilizador.perfil}</span>}
-          <button onClick={() => logout()} style={estilos.botaoSessao}>
-            Terminar sessão
-          </button>
-        </div>
-      </header>
+    <div className="pagina-sgd">
+      <Cabecalho />
 
       <main style={estilos.conteudo}>
         <div style={estilos.cabecalhoLista}>
@@ -108,7 +95,7 @@ export function ListaDocumentos() {
             </Link>
             {podeCriar && (
               <Link to="/documentos/novo" style={{ textDecoration: "none" }}>
-                <button type="button" style={estilos.botaoNovo}>
+                <button type="button" className="botao-vermelho-alerta" style={estilos.botaoNovo}>
                   + Novo registo
                 </button>
               </Link>
@@ -169,6 +156,7 @@ export function ListaDocumentos() {
           </div>
         )}
       </main>
+      <Rodape />
     </div>
   );
 }
@@ -211,7 +199,7 @@ const estilos: Record<string, React.CSSProperties> = {
     fontFamily: "Arial, Helvetica, sans-serif",
   },
   navbar: {
-    backgroundColor: "#1c2b4a",
+    backgroundColor: "var(--cor-primaria)",
     padding: "16px 32px",
     display: "flex",
     alignItems: "center",
@@ -242,7 +230,7 @@ const estilos: Record<string, React.CSSProperties> = {
     fontSize: 16,
   },
   marcaSubtitulo: {
-    color: "#b9c2d6",
+    color: "var(--cor-primaria-suave)",
     fontSize: 12,
   },
   utilizadorArea: {
@@ -288,7 +276,7 @@ const estilos: Record<string, React.CSSProperties> = {
     fontFamily: "Georgia, 'Times New Roman', serif",
     fontWeight: 700,
     fontSize: 28,
-    color: "#1c2b4a",
+    color: "var(--cor-primaria)",
   },
   contagem: {
     fontSize: 13,
@@ -339,8 +327,8 @@ const estilos: Record<string, React.CSSProperties> = {
     cursor: "pointer",
   },
   filtroBotaoAtivo: {
-    backgroundColor: "#1c2b4a",
-    borderColor: "#1c2b4a",
+    backgroundColor: "var(--cor-primaria)",
+    borderColor: "var(--cor-primaria)",
     color: "#ffffff",
   },
   colunaAcoesTopo: {
@@ -353,9 +341,9 @@ const estilos: Record<string, React.CSSProperties> = {
     padding: "10px 18px",
     fontSize: 13,
     fontWeight: 700,
-    color: "#1c2b4a",
+    color: "var(--cor-primaria)",
     backgroundColor: "transparent",
-    border: "1.5px solid #1c2b4a",
+    border: "1.5px solid var(--cor-primaria)",
     borderRadius: 8,
     textDecoration: "none",
     display: "inline-block",
@@ -365,10 +353,7 @@ const estilos: Record<string, React.CSSProperties> = {
     padding: "10px 18px",
     fontSize: 13,
     fontWeight: 700,
-    border: "none",
     borderRadius: 8,
-    backgroundColor: "#d92b1f",
-    color: "#ffffff",
     cursor: "pointer",
     whiteSpace: "nowrap",
   },
@@ -406,7 +391,7 @@ const estilos: Record<string, React.CSSProperties> = {
     verticalAlign: "top",
   },
   linkRegisto: {
-    color: "#1c2b4a",
+    color: "var(--cor-primaria)",
     fontWeight: 700,
     textDecoration: "none",
   },

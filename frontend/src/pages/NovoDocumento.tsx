@@ -3,12 +3,14 @@ import { useNavigate, Navigate, Link } from "react-router-dom";
 import { isAxiosError } from "axios";
 import { criarDocumento } from "../api/documentos";
 import { useAuth } from "../auth/AuthContext";
+import { Cabecalho } from "../components/Cabecalho";
+import { Rodape } from "../components/Rodape";
 
 const PERFIS_PODEM_CRIAR = ["RECEP", "SECR", "ADMIN"];
 
 export function NovoDocumento() {
   const navegar = useNavigate();
-  const { utilizador, logout } = useAuth();
+  const { utilizador } = useAuth();
   const podeCriar = !!utilizador?.perfil && PERFIS_PODEM_CRIAR.includes(utilizador.perfil);
   const [remetente, setRemetente] = useState("");
   const [assunto, setAssunto] = useState("");
@@ -42,23 +44,8 @@ export function NovoDocumento() {
   }
 
   return (
-    <div style={estilos.pagina}>
-      <header style={estilos.navbar}>
-        <div style={estilos.marca}>
-          <div style={estilos.selo}>M</div>
-          <div>
-            <div style={estilos.marcaTitulo}>SGD · MTTED</div>
-            <div style={estilos.marcaSubtitulo}>Gestão Documental</div>
-          </div>
-        </div>
-        <div style={estilos.utilizadorArea}>
-          <span style={estilos.utilizadorNome}>{utilizador?.nome}</span>
-          {utilizador?.perfil && <span style={estilos.perfilBadge}>{utilizador.perfil}</span>}
-          <button onClick={() => logout()} style={estilos.botaoSessao}>
-            Terminar sessão
-          </button>
-        </div>
-      </header>
+    <div className="pagina-sgd">
+      <Cabecalho />
 
       <div style={estilos.conteudo}>
         <Link to="/documentos" style={estilos.linkVoltar}>
@@ -112,7 +99,7 @@ export function NovoDocumento() {
 
             {erro && <p style={estilos.mensagemErro}>{erro}</p>}
 
-            <button type="submit" disabled={aGuardar} style={estilos.botaoPrimario}>
+            <button type="submit" disabled={aGuardar} className="botao-vermelho-alerta" style={estilos.botaoPrimario}>
               {aGuardar ? "A gravar..." : "Gravar"}
             </button>
           </form>
@@ -122,6 +109,7 @@ export function NovoDocumento() {
           </p>
         </div>
       </div>
+      <Rodape />
     </div>
   );
 }
@@ -133,7 +121,7 @@ const estilos: Record<string, React.CSSProperties> = {
     fontFamily: "Arial, Helvetica, sans-serif",
   },
   navbar: {
-    backgroundColor: "#1c2b4a",
+    backgroundColor: "var(--cor-primaria)",
     padding: "16px 32px",
     display: "flex",
     alignItems: "center",
@@ -160,7 +148,7 @@ const estilos: Record<string, React.CSSProperties> = {
     fontSize: 16,
     whiteSpace: "nowrap",
   },
-  marcaSubtitulo: { color: "#b9c2d6", fontSize: 12, whiteSpace: "nowrap" },
+  marcaSubtitulo: { color: "var(--cor-primaria-suave)", fontSize: 12, whiteSpace: "nowrap" },
   utilizadorArea: { display: "flex", alignItems: "center", gap: 12 },
   utilizadorNome: { color: "#ffffff", fontSize: 14 },
   perfilBadge: {
@@ -198,7 +186,7 @@ const estilos: Record<string, React.CSSProperties> = {
     fontFamily: "Georgia, 'Times New Roman', serif",
     fontWeight: 700,
     fontSize: 24,
-    color: "#1c2b4a",
+    color: "var(--cor-primaria)",
   },
   cartao: {
     backgroundColor: "#ffffff",
@@ -237,10 +225,7 @@ const estilos: Record<string, React.CSSProperties> = {
     padding: "12px 0",
     fontSize: 14,
     fontWeight: 700,
-    border: "none",
     borderRadius: 8,
-    backgroundColor: "#d92b1f",
-    color: "#ffffff",
     cursor: "pointer",
   },
   dica: {

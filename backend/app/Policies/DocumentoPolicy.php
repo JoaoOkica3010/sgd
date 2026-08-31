@@ -39,8 +39,11 @@ class DocumentoPolicy
             ], true);
         }
 
-        return $documento->servico_destino_id === $utilizador->perfil_id
-            || $documento->encaminhamentos()->where('servico_destino_id', $utilizador->perfil_id)->exists();
+        $servicoId = $utilizador->perfil?->servico_id;
+
+        return $servicoId !== null
+            && ($documento->servico_destino_id === $servicoId
+                || $documento->encaminhamentos()->where('servico_destino_id', $servicoId)->exists());
     }
 
     public function criar(Utilizador $utilizador): bool
@@ -75,7 +78,9 @@ class DocumentoPolicy
             ], true);
         }
 
-        return $documento->servico_destino_id === $utilizador->perfil_id;
+        $servicoId = $utilizador->perfil?->servico_id;
+
+        return $servicoId !== null && $documento->servico_destino_id === $servicoId;
     }
 
     public function validarSecretariado(Utilizador $utilizador, Documento $documento): bool
@@ -86,6 +91,19 @@ class DocumentoPolicy
     public function encaminhar(Utilizador $utilizador, Documento $documento): bool
     {
         return $utilizador->possuiPerfil('MIN') && $documento->estado_atual === Documento::ESTADO_VALIDADO_SECRETARIADO;
+    }
+
+    /**
+     * Assinatura digital simples pelo Ministro, no mesmo estado em que
+     * pode encaminhar. Um documento só pode ter uma assinatura ativa de
+     * cada vez (ver migration de assinaturas_documento) — mesma regra já
+     * aplicada no frontend (DetalheDocumento.tsx: podeAssinar).
+     */
+    public function assinar(Utilizador $utilizador, Documento $documento): bool
+    {
+        return $utilizador->possuiPerfil('MIN')
+            && $documento->estado_atual === Documento::ESTADO_VALIDADO_SECRETARIADO
+            && ! $documento->assinatura()->exists();
     }
 
     public function arquivar(Utilizador $utilizador, Documento $documento): bool

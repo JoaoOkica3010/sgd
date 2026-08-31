@@ -23,7 +23,9 @@ class AnexoPolicy
             return true;
         }
 
-        return $documento->servico_destino_id === $utilizador->perfil_id;
+        $servicoId = $utilizador->perfil?->servico_id;
+
+        return $servicoId !== null && $documento->servico_destino_id === $servicoId;
     }
 
     /**
