@@ -69,6 +69,9 @@ export function FichaDocumento({ documento, historico, observacoes, aoImprimir }
         <h2 style={estilos.tituloSeccao}>Detalhes do documento</h2>
         <div style={estilos.grelhaDados}>
           <Campo rotulo="Número de registo" valor={documento.numero_registo} />
+          {documento.numero_referencia && (
+            <Campo rotulo="Número/Referência" valor={documento.numero_referencia} />
+          )}
           <Campo rotulo="Tipo" valor={documento.tipo_documento} />
           <Campo rotulo="Remetente" valor={documento.remetente} />
           <Campo rotulo="Prioridade" valor={documento.prioridade} />
