@@ -1,7 +1,7 @@
 export type Perfil =
   | "SADMIN" | "ADMIN"
   | "RECEP" | "SECR" | "MIN" | "CG" | "SG" | "AJ" | "AAP" | "AIM"
-  | "GE" | "DGED" | "ITMA" | "DGVTT" | "IMP" | "ARQ";
+  | "GE" | "DGED" | "ITMA" | "DGVTT" | "IMP" | "ARQ" | "CONSULTA";
 
 export interface Utilizador {
   id: string;

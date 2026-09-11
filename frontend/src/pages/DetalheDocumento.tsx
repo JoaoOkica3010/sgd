@@ -221,19 +221,19 @@ export function DetalheDocumento() {
   const podeSubmeter = documento.estado_atual === "recepcao" && (perfil === "RECEP" || perfil === "SECR");
   const podeValidarSecretariado = documento.estado_atual === "submetido" && perfil === "SECR";
   const podeEncaminhar = documento.estado_atual === "validado_secretariado" && perfil === "MIN";
-  const podeIniciarAnalise = documento.estado_atual === "encaminhado" && perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ";
-  const podeValidarServico = documento.estado_atual === "em_analise" && perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ";
+  const podeIniciarAnalise = documento.estado_atual === "encaminhado" && perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ" && perfil !== "CONSULTA";
+  const podeValidarServico = documento.estado_atual === "em_analise" && perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ" && perfil !== "CONSULTA";
   const podeArquivar = documento.estado_atual === "validado_servico" && perfil === "ARQ";
   const podeRejeitar = (documento.estado_atual === "submetido" && perfil === "SECR") ||
     (["encaminhado", "em_analise"].includes(documento.estado_atual) &&
-      perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ");
+      perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ" && perfil !== "CONSULTA");
 
   const documentoTerminal = documento.estado_atual === "arquivado" || documento.estado_atual === "rejeitado";
 
   const podeAnexar =
     (perfil === "RECEP" && documento.estado_atual === "recepcao") ||
     (perfil === "SECR" && ["recepcao", "submetido"].includes(documento.estado_atual)) ||
-    (perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ" &&
+    (perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ" && perfil !== "CONSULTA" &&
       ["encaminhado", "em_analise"].includes(documento.estado_atual)) ||
     (perfil === "ADMIN" && !documentoTerminal);
 

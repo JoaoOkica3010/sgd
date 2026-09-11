@@ -21,9 +21,35 @@ return new class extends Migration
 
         // Backfill: comentários já existentes assumem o estado atual do
         // respetivo documento, por não termos o valor histórico exato.
-        DB::table('comentarios')
-            ->join('documentos', 'documentos.id', '=', 'comentarios.documento_id')
-            ->update(['comentarios.estado_criacao' => DB::raw('documentos.estado_atual')]);
+        //
+        // DB::table()->join()->update() com uma coluna da tabela juntada no
+        // SET só funciona em MySQL (gera "UPDATE a JOIN b ... SET a.x = b.y").
+        // Em PostgreSQL e SQLite o query builder tem de gerar sintaxes
+        // diferentes (UPDATE ... FROM / subquery), por isso a query é
+        // escrita à mão para cada motor — mesmo padrão já usado em
+        // DocumentoController::index() para a pesquisa full-text.
+        $driver = DB::getDriverName();
+
+        if ($driver === 'pgsql') {
+            DB::statement('
+                UPDATE comentarios
+                SET estado_criacao = documentos.estado_atual
+                FROM documentos
+                WHERE documentos.id = comentarios.documento_id
+            ');
+        } elseif ($driver === 'sqlite') {
+            DB::statement('
+                UPDATE comentarios
+                SET estado_criacao = (
+                    SELECT estado_atual FROM documentos WHERE documentos.id = comentarios.documento_id
+                )
+                WHERE EXISTS (SELECT 1 FROM documentos WHERE documentos.id = comentarios.documento_id)
+            ');
+        } else {
+            DB::table('comentarios')
+                ->join('documentos', 'documentos.id', '=', 'comentarios.documento_id')
+                ->update(['comentarios.estado_criacao' => DB::raw('documentos.estado_atual')]);
+        }
     }
 
     public function down(): void

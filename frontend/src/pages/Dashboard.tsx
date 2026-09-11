@@ -314,7 +314,7 @@ function precisaAcaoDoUtilizador(doc: Documento, perfil?: string): boolean {
   if (estado === "recepcao" && (perfil === "RECEP" || perfil === "SECR")) return true;
   if (estado === "submetido" && perfil === "SECR") return true;
   if (estado === "validado_secretariado" && perfil === "MIN") return true;
-  const perfilDeServico = perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ";
+  const perfilDeServico = perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ" && perfil !== "CONSULTA";
   if (estado === "encaminhado" && perfilDeServico) return true;
   if (estado === "em_analise" && perfilDeServico) return true;
   if (estado === "validado_servico" && perfil === "ARQ") return true;

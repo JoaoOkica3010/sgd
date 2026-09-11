@@ -2,6 +2,7 @@
 /node_modules
 .env
 .phpunit.result.cache
+/database/database.sqlite
 Homestead.json
 Homestead.yaml
 auth.json

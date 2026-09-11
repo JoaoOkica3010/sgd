@@ -11,9 +11,18 @@ class ComentarioPolicy
     /**
      * RF016 — qualquer utilizador com âmbito sobre o documento pode
      * adicionar parecer, exceto em documentos já arquivados.
+     *
+     * O CONSULTA é sempre excluído aqui: tem visibilidade total sobre os
+     * documentos (DocumentoPolicy::ver), mas é um perfil só de leitura —
+     * delegar diretamente em "ver" deixá-lo-ia comentar como qualquer
+     * outro utilizador com âmbito sobre o documento.
      */
     public function criar(Utilizador $utilizador, Documento $documento): bool
     {
+        if ($utilizador->possuiPerfil('CONSULTA')) {
+            return false;
+        }
+
         if ($documento->estado_atual === Documento::ESTADO_ARQUIVADO) {
             return false;
         }

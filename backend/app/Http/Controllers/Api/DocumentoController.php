@@ -31,7 +31,7 @@ class DocumentoController extends Controller
             $query->whereIn('estado_atual', [Documento::ESTADO_VALIDADO_SERVICO, Documento::ESTADO_ARQUIVADO]);
         } elseif ($utilizador->possuiPerfil('MIN')) {
             $query->whereIn('estado_atual', [Documento::ESTADO_VALIDADO_SECRETARIADO, Documento::ESTADO_ENCAMINHADO]);
-        } elseif (! $utilizador->possuiPerfil('SECR', 'ADMIN')) {
+        } elseif (! $utilizador->possuiPerfil('SECR', 'ADMIN', 'CONSULTA')) {
             $servicoId = $utilizador->perfil?->servico_id;
             $query->where(function ($q) use ($servicoId) {
                 $q->where('servico_destino_id', $servicoId)
@@ -165,6 +165,28 @@ class DocumentoController extends Controller
         }
 
         return $documento->fresh()->load('encaminhamentos.servicoDestino');
+    }
+
+    /**
+     * POST /documentos/{documento}/iniciar-analise
+     * Serviço de destino começa a analisar: encaminhado -> em_analise.
+     */
+    public function iniciarAnalise(Request $request, Documento $documento)
+    {
+        Gate::authorize('iniciarAnalise', $documento);
+
+        return $this->workflow->transitar($documento, Documento::ESTADO_EM_ANALISE, $request->user());
+    }
+
+    /**
+     * POST /documentos/{documento}/validar-servico
+     * Serviço de destino conclui a análise: em_analise -> validado_servico.
+     */
+    public function validarServico(Request $request, Documento $documento)
+    {
+        Gate::authorize('validarServico', $documento);
+
+        return $this->workflow->transitar($documento, Documento::ESTADO_VALIDADO_SERVICO, $request->user());
     }
 
     public function rejeitar(Request $request, Documento $documento)
