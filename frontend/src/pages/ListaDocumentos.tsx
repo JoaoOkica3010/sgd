@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 
 export function ListaDocumentos() {
   const { utilizador, logout } = useAuth();
+  const podeCriar = utilizador?.perfil === "RECEP" || utilizador?.perfil === "SECR";
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [termo, setTermo] = useState("");
   const [aCarregar, setACarregar] = useState(true);
@@ -52,9 +53,11 @@ export function ListaDocumentos() {
           style={{ flex: 1, padding: 8 }}
         />
         <button type="submit">Pesquisar</button>
-        <Link to="/documentos/novo">
-          <button type="button">+ Novo registo</button>
-        </Link>
+        {podeCriar && (
+          <Link to="/documentos/novo">
+            <button type="button">+ Novo registo</button>
+          </Link>
+        )}
       </form>
 
       {aCarregar && <p>A carregar...</p>}

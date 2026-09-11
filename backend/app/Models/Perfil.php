@@ -23,6 +23,9 @@ class Perfil extends Model
         'GE', 'DGED', 'ITMA', 'DGVTT', 'IMP', 'ARQ',
     ];
 
+    /** Perfil de acesso apenas de leitura: ver, pesquisar e imprimir documentos. */
+    public const SIGLA_CONSULTA = 'CONSULTA';
+
     public function utilizadores(): HasMany
     {
         return $this->hasMany(Utilizador::class);

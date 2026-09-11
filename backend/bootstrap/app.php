@@ -26,7 +26,14 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
-        $exceptions->render(function (\Illuminate\Auth\Access\AuthorizationException $e, $request) {
+        // Nota: o Handler::prepareException() do Laravel converte sempre
+        // AuthorizationException em AccessDeniedHttpException (Symfony) antes
+        // de os callbacks de render() correrem — por isso e este o tipo que
+        // e preciso apanhar aqui, nao a excecao original. Como
+        // AccessDeniedHttpException extends RuntimeException, este handler
+        // tem de ficar registado antes do catch-all de RuntimeException
+        // abaixo, para nao ser mascarado por ele.
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e, $request) {
             if ($request->is('api/*')) {
                 return response()->json([
                     'error' => ['code' => 'forbidden', 'message' => 'Nao tem permissao para executar esta acao.'],

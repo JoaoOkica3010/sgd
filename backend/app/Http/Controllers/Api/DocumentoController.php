@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Auditoria;
 use App\Models\Documento;
+use App\Models\Perfil;
 use App\Services\WorkflowService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class DocumentoController extends Controller
 {
@@ -129,7 +131,12 @@ class DocumentoController extends Controller
 
         $dados = $request->validate([
             'servico_destino_ids' => ['required', 'array', 'min:1'],
-            'servico_destino_ids.*' => ['exists:perfis,id'],
+            // O perfil CONSULTA e apenas de leitura: nunca pode ser destino de
+            // um encaminhamento, sob pena de ganhar, na pratica, permissoes de
+            // iniciar analise / validar por servico sobre o documento.
+            'servico_destino_ids.*' => [
+                Rule::exists('perfis', 'id')->where(fn ($query) => $query->where('sigla', '!=', Perfil::SIGLA_CONSULTA)),
+            ],
             'comentario' => ['nullable', 'string'],
         ]);
 

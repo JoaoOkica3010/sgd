@@ -7,7 +7,7 @@ import {
 } from "../api/documentos";
 import { baixarAnexo, carregarAnexo } from "../api/anexos";
 import { listarPerfis, type PerfilResumo } from "../api/perfis";
-import { ROTULOS_ESTADO, type Documento, type EstadoHistorico } from "../types";
+import { PERFIS_SEM_ACOES_DE_SERVICO, ROTULOS_ESTADO, type Documento, type EstadoHistorico } from "../types";
 import { useAuth } from "../auth/AuthContext";
 
 export function DetalheDocumento() {
@@ -98,22 +98,31 @@ export function DetalheDocumento() {
   }
 
   const perfil = utilizador?.perfil;
+  // Um "servico de destino" e qualquer perfil que nao tenha um papel fixo
+  // proprio no workflow (nem RECEP/SECR/MIN/ARQ, nem o CONSULTA, so leitura).
+  const ehServicoDestino = !!perfil && !PERFIS_SEM_ACOES_DE_SERVICO.includes(perfil);
   const podeSubmeter = documento.estado_atual === "recepcao" && (perfil === "RECEP" || perfil === "SECR");
-  const podeValidarSecretariado = documento.estado_atual === "submetido" && perfil === "SECR";
+  const podeValidarSecretariado =
+    (documento.estado_atual === "submetido" && perfil === "SECR") ||
+    (documento.estado_atual === "rejeitado" && (perfil === "MIN" || perfil === "SECR"));
   const podeEncaminhar = documento.estado_atual === "validado_secretariado" && perfil === "MIN";
-  const podeIniciarAnalise = documento.estado_atual === "encaminhado" && perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ";
-  const podeValidarServico = documento.estado_atual === "em_analise" && perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ";
+  const podeIniciarAnalise = documento.estado_atual === "encaminhado" && ehServicoDestino;
+  const podeValidarServico = documento.estado_atual === "em_analise" && ehServicoDestino;
   const podeArquivar = documento.estado_atual === "validado_servico" && perfil === "ARQ";
-  const podeRejeitar = ["submetido", "encaminhado", "em_analise"].includes(documento.estado_atual) && perfil !== "RECEP" && perfil !== "ARQ";
+  const podeRejeitar =
+    ["submetido", "encaminhado", "em_analise"].includes(documento.estado_atual) &&
+    perfil !== "RECEP" && perfil !== "ARQ" && perfil !== "CONSULTA";
   const podeAnexar =
     (perfil === "RECEP" && documento.estado_atual === "recepcao") ||
     (perfil === "SECR" && ["recepcao", "submetido"].includes(documento.estado_atual)) ||
-    (perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ" &&
-      ["encaminhado", "em_analise"].includes(documento.estado_atual));
+    (ehServicoDestino && ["encaminhado", "em_analise"].includes(documento.estado_atual));
 
   return (
     <div style={{ maxWidth: 700, margin: "40px auto", fontFamily: "sans-serif" }}>
-      <Link to="/documentos">← Voltar à lista</Link>
+      <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Link to="/documentos">← Voltar à lista</Link>
+        <button onClick={() => window.print()}>Imprimir</button>
+      </div>
 
       <h1 style={{ fontSize: 20, marginTop: 12 }}>{documento.numero_registo}</h1>
       <p style={{ color: "#666" }}>
@@ -147,12 +156,15 @@ export function DetalheDocumento() {
         {(!documento.anexos || documento.anexos.length === 0) && <li style={{ color: "#999" }}>Sem anexos.</li>}
       </ul>
       {podeAnexar && (
-        <div>
+        <div className="no-print">
           <input type="file" onChange={submeterAnexo} disabled={aProcessar} accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" />
           <p style={{ color: "#999", fontSize: 12 }}>PDF, Word, Excel ou imagem, até 20 MB.</p>
         </div>
       )}
 
+      {(podeSubmeter || podeValidarSecretariado || podeIniciarAnalise || podeValidarServico ||
+        podeArquivar || podeRejeitar || podeEncaminhar) && (
+      <div className="no-print">
       <h2 style={{ fontSize: 16, marginTop: 28 }}>Ações</h2>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         {podeSubmeter && (
@@ -162,7 +174,7 @@ export function DetalheDocumento() {
         )}
         {podeValidarSecretariado && (
           <button disabled={aProcessar} onClick={() => id && executarAcao(() => validarDocumento(id))}>
-            Validar (Secretariado)
+            {documento.estado_atual === "rejeitado" ? "Reenviar após rejeição" : "Validar (Secretariado)"}
           </button>
         )}
         {podeIniciarAnalise && (
@@ -211,7 +223,11 @@ export function DetalheDocumento() {
       {podeEncaminhar && (
         <div style={{ marginTop: 12, padding: 12, border: "1px solid #eee" }}>
           <p style={{ fontSize: 14, fontWeight: 600 }}>Encaminhar para:</p>
-          {perfis.filter((p) => p.sigla !== "MIN" && p.sigla !== "RECEP").map((p) => (
+          {perfis
+            // CONSULTA e um perfil so de leitura: nunca pode ser destino de
+            // um encaminhamento (o backend tambem recusa isto na validacao).
+            .filter((p) => p.sigla !== "MIN" && p.sigla !== "RECEP" && p.sigla !== "CONSULTA")
+            .map((p) => (
             <label key={p.id} style={{ display: "block", fontSize: 14, marginBottom: 4 }}>
               <input
                 type="checkbox"
@@ -229,6 +245,8 @@ export function DetalheDocumento() {
             Confirmar encaminhamento
           </button>
         </div>
+      )}
+      </div>
       )}
 
       <h2 style={{ fontSize: 16, marginTop: 28 }}>Histórico</h2>

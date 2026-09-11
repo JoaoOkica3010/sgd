@@ -1,6 +1,15 @@
 export type Perfil =
   | "RECEP" | "SECR" | "MIN" | "CG" | "SG" | "AJ" | "AAP" | "AIM"
-  | "GE" | "DGED" | "ITMA" | "DGVTT" | "IMP" | "ARQ";
+  | "GE" | "DGED" | "ITMA" | "DGVTT" | "IMP" | "ARQ" | "CONSULTA";
+
+/**
+ * Perfis com regras proprias de workflow (nao sao "servicos" genericos de
+ * analise). Qualquer perfil fora desta lista e tratado como servico de
+ * destino de encaminhamento (pode iniciar analise / validar por servico).
+ * O CONSULTA tem de estar aqui: e um perfil transversal só de leitura
+ * (ver, pesquisar, imprimir) e nunca deve ganhar acoes de workflow.
+ */
+export const PERFIS_SEM_ACOES_DE_SERVICO: Perfil[] = ["RECEP", "SECR", "MIN", "ARQ", "CONSULTA"];
 
 export interface Utilizador {
   id: string;

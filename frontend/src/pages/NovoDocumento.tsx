@@ -1,9 +1,12 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { criarDocumento } from "../api/documentos";
+import { useAuth } from "../auth/AuthContext";
 
 export function NovoDocumento() {
   const navegar = useNavigate();
+  const { utilizador } = useAuth();
+  const podeCriar = utilizador?.perfil === "RECEP" || utilizador?.perfil === "SECR";
   const [remetente, setRemetente] = useState("");
   const [assunto, setAssunto] = useState("");
   const [tipoDocumento, setTipoDocumento] = useState("Oficio");
@@ -23,6 +26,10 @@ export function NovoDocumento() {
     } finally {
       setAGuardar(false);
     }
+  }
+
+  if (!podeCriar) {
+    return <Navigate to="/documentos" replace />;
   }
 
   return (

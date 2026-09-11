@@ -5,7 +5,10 @@ namespace Database\Seeders;
 use App\Models\Perfil;
 use Illuminate\Database\Seeder;
 
-/** Popula os 14 servicos definidos na seccao 4.1 do Documento de Analise de Requisitos. */
+/**
+ * Popula os 14 servicos definidos na seccao 4.1 do Documento de Analise de
+ * Requisitos, mais o perfil CONSULTA (acesso transversal só de leitura).
+ */
 class PerfilSeeder extends Seeder
 {
     public function run(): void
@@ -25,6 +28,7 @@ class PerfilSeeder extends Seeder
             ['sigla' => 'DGVTT', 'nome_servico' => 'Direcao Geral de Viacao e Transportes Terrestres'],
             ['sigla' => 'IMP', 'nome_servico' => 'Instituto Maritimo Portuario'],
             ['sigla' => 'ARQ', 'nome_servico' => 'Arquivo'],
+            ['sigla' => Perfil::SIGLA_CONSULTA, 'nome_servico' => 'Consulta (só leitura)'],
         ];
 
         foreach ($perfis as $perfil) {

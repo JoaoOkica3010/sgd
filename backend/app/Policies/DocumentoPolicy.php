@@ -25,7 +25,7 @@ class DocumentoPolicy
             return $documento->criado_por === $utilizador->id;
         }
 
-        if ($utilizador->possuiPerfil('SECR')) {
+        if ($utilizador->possuiPerfil('SECR', 'CONSULTA')) {
             return true;
         }
 
@@ -91,6 +91,6 @@ class DocumentoPolicy
 
     public function rejeitar(Utilizador $utilizador, Documento $documento): bool
     {
-        return ! $utilizador->possuiPerfil('RECEP', 'ARQ');
+        return ! $utilizador->possuiPerfil('RECEP', 'ARQ', 'CONSULTA');
     }
 }
