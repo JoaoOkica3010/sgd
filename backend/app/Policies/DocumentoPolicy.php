@@ -116,6 +116,29 @@ class DocumentoPolicy
         return $utilizador->possuiPerfil('ARQ') && $documento->estado_atual === Documento::ESTADO_ARQUIVADO;
     }
 
+    /**
+     * Serviço de destino começa a analisar: encaminhado -> em_analise.
+     * Mesma regra de "âmbito sobre o serviço" usada em ver()/editar().
+     */
+    public function iniciarAnalise(Utilizador $utilizador, Documento $documento): bool
+    {
+        $servicoId = $utilizador->perfil?->servico_id;
+
+        return $documento->estado_atual === Documento::ESTADO_ENCAMINHADO
+            && $servicoId !== null && $documento->servico_destino_id === $servicoId;
+    }
+
+    /**
+     * Serviço de destino conclui a análise: em_analise -> validado_servico.
+     */
+    public function validarServico(Utilizador $utilizador, Documento $documento): bool
+    {
+        $servicoId = $utilizador->perfil?->servico_id;
+
+        return $documento->estado_atual === Documento::ESTADO_EM_ANALISE
+            && $servicoId !== null && $documento->servico_destino_id === $servicoId;
+    }
+
     public function rejeitar(Utilizador $utilizador, Documento $documento): bool
     {
         if ($documento->estado_atual === Documento::ESTADO_SUBMETIDO) {

@@ -37,13 +37,17 @@ class WorkflowService
                 'encaminhado' => fn (Documento $doc, Utilizador $u) =>
                     $u->perfil?->sigla === 'MIN',
             ],
+            // Nota: servico_destino_id aponta para "servicos.id", não para
+            // "perfis.id" (ver migration 2026_08_29_000001) — por isso a
+            // comparação tem de ser com perfil->servico_id, nunca com
+            // perfil_id diretamente.
             'encaminhado' => [
                 'em_analise' => fn (Documento $doc, Utilizador $u) =>
-                    $doc->servico_destino_id !== null && $u->perfil_id === $doc->servico_destino_id,
+                    $doc->servico_destino_id !== null && $u->perfil?->servico_id === $doc->servico_destino_id,
             ],
             'em_analise' => [
                 'validado_servico' => fn (Documento $doc, Utilizador $u) =>
-                    $doc->servico_destino_id !== null && $u->perfil_id === $doc->servico_destino_id,
+                    $doc->servico_destino_id !== null && $u->perfil?->servico_id === $doc->servico_destino_id,
             ],
             'validado_servico' => [
                 'arquivado' => fn (Documento $doc, Utilizador $u) =>
@@ -181,8 +185,11 @@ class WorkflowService
         }
 
         // "Qualquer serviço envolvido": quem criou, o serviço de destino atual, ou MIN/SECR.
+        // servico_destino_id aponta para "servicos.id" — a comparação tem de
+        // ser com perfil->servico_id, nunca com perfil_id diretamente (ver
+        // nota em transicoes() acima).
         return $utilizador->id === $documento->criado_por
-            || $utilizador->perfil_id === $documento->servico_destino_id
+            || $utilizador->perfil?->servico_id === $documento->servico_destino_id
             || in_array($utilizador->perfil?->sigla, ['MIN', 'SECR'], true);
     }
 

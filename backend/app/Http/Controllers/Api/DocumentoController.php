@@ -167,6 +167,28 @@ class DocumentoController extends Controller
         return $documento->fresh()->load('encaminhamentos.servicoDestino');
     }
 
+    /**
+     * POST /documentos/{documento}/iniciar-analise
+     * Serviço de destino começa a analisar: encaminhado -> em_analise.
+     */
+    public function iniciarAnalise(Request $request, Documento $documento)
+    {
+        Gate::authorize('iniciarAnalise', $documento);
+
+        return $this->workflow->transitar($documento, Documento::ESTADO_EM_ANALISE, $request->user());
+    }
+
+    /**
+     * POST /documentos/{documento}/validar-servico
+     * Serviço de destino conclui a análise: em_analise -> validado_servico.
+     */
+    public function validarServico(Request $request, Documento $documento)
+    {
+        Gate::authorize('validarServico', $documento);
+
+        return $this->workflow->transitar($documento, Documento::ESTADO_VALIDADO_SERVICO, $request->user());
+    }
+
     public function rejeitar(Request $request, Documento $documento)
     {
         Gate::authorize('rejeitar', $documento);
