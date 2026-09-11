@@ -2,223 +2,247 @@
 
 namespace App\Services;
 
+use App\Exceptions\TransicaoInvalidaException;
 use App\Models\Auditoria;
 use App\Models\Documento;
-use App\Models\Encaminhamento;
 use App\Models\EstadoDocumento;
 use App\Models\Utilizador;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
 
 /**
- * Motor de workflow do SGD.
+ * Máquina de estados do workflow do SGD (DOC05 - Máquina de Estados do Workflow).
  *
- * Implementa, como maquina de estados isolada (nao dispersa por
- * controladores), as transicoes definidas no documento
- * "Maquina de Estados do Workflow v1.0". Cada metodo publico corresponde
- * a uma transicao e e responsavel por:
- *   1. Validar que o perfil do utilizador pode executar a transicao;
- *   2. Validar a condicao de negocio associada;
- *   3. Aplicar a transicao e escrever uma entrada em estados_documento;
- *   4. Registar a acao em auditoria;
- *   5. Despachar notificacoes assincronas quando aplicavel (ver fila Redis).
+ * Todas as transições de estado de um Documento DEVEM passar por aqui.
+ * Nenhum controller deve alterar `estado_atual` diretamente.
  */
 class WorkflowService
 {
     /**
-     * Tabela de transicoes: estado origem => [estado destino => [perfis autorizados]].
-     * Reflete a seccao 4 do documento "Maquina de Estados do Workflow".
+     * Tabela de transições (secção 4 do DOC05).
+     * Cada entrada: estado_origem => [ estado_destino => callable(Documento, Utilizador): bool ]
+     * O callable determina se o utilizador tem o perfil "responsável" pela transição.
      */
-    private const TRANSICOES = [
-        Documento::ESTADO_RECEPCAO => [
-            Documento::ESTADO_SUBMETIDO => ['RECEP', 'SECR'],
-        ],
-        Documento::ESTADO_SUBMETIDO => [
-            Documento::ESTADO_VALIDADO_SECRETARIADO => ['SECR'],
-            Documento::ESTADO_REJEITADO => ['SECR'],
-        ],
-        Documento::ESTADO_VALIDADO_SECRETARIADO => [
-            Documento::ESTADO_ENCAMINHADO => ['MIN'],
-        ],
-        Documento::ESTADO_ENCAMINHADO => [
-            Documento::ESTADO_EM_ANALISE => null, // qualquer servico de destino
-            Documento::ESTADO_REJEITADO => null,
-        ],
-        Documento::ESTADO_EM_ANALISE => [
-            Documento::ESTADO_VALIDADO_SERVICO => null, // servico de destino
-            Documento::ESTADO_REJEITADO => null,
-        ],
-        Documento::ESTADO_VALIDADO_SERVICO => [
-            Documento::ESTADO_ARQUIVADO => ['ARQ'],
-        ],
-        Documento::ESTADO_REJEITADO => [
-            Documento::ESTADO_VALIDADO_SECRETARIADO => ['MIN', 'SECR'],
-        ],
+    private function transicoes(): array
+    {
+        return [
+            'recepcao' => [
+                'submetido' => fn (Documento $doc, Utilizador $u) =>
+                    in_array($u->perfil?->sigla, ['RECEP', 'SECR'], true),
+            ],
+            'submetido' => [
+                'validado_secretariado' => fn (Documento $doc, Utilizador $u) =>
+                    $u->perfil?->sigla === 'SECR',
+            ],
+            'validado_secretariado' => [
+                'encaminhado' => fn (Documento $doc, Utilizador $u) =>
+                    $u->perfil?->sigla === 'MIN',
+            ],
+            'encaminhado' => [
+                'em_analise' => fn (Documento $doc, Utilizador $u) =>
+                    $doc->servico_destino_id !== null && $u->perfil_id === $doc->servico_destino_id,
+            ],
+            'em_analise' => [
+                'validado_servico' => fn (Documento $doc, Utilizador $u) =>
+                    $doc->servico_destino_id !== null && $u->perfil_id === $doc->servico_destino_id,
+            ],
+            'validado_servico' => [
+                'arquivado' => fn (Documento $doc, Utilizador $u) =>
+                    $u->perfil?->sigla === 'ARQ',
+            ],
+        ];
+    }
+
+    /**
+     * Estados a partir dos quais é possível rejeitar (qualquer estado "ativo",
+     * ou seja, tudo exceto arquivado e o próprio rejeitado).
+     */
+    private const ESTADOS_REJEITAVEIS = [
+        'recepcao', 'submetido', 'validado_secretariado',
+        'encaminhado', 'em_analise', 'validado_servico',
     ];
 
-    public function submeter(Documento $documento, Utilizador $utilizador): Documento
+    public function transicoesPossiveis(Documento $documento): array
     {
-        return $this->transitar($documento, $utilizador, Documento::ESTADO_SUBMETIDO);
-    }
-
-    public function validarSecretariado(Documento $documento, Utilizador $utilizador): Documento
-    {
-        return $this->transitar($documento, $utilizador, Documento::ESTADO_VALIDADO_SECRETARIADO);
+        return array_keys($this->transicoes()[$documento->estado_atual] ?? []);
     }
 
     /**
-     * RF013: encaminha para um ou varios servicos em simultaneo.
-     * Cada servico avanca depois de forma independente pelos estados 4-6.
+     * Reabre um documento rejeitado, devolvendo-o exatamente ao estado em
+     * que estava antes da rejeição (não a um estado fixo) — determinado a
+     * partir da entrada de histórico imediatamente anterior à rejeição
+     * mais recente. Reservado a MIN e ADMIN.
+     *
+     * @throws TransicaoInvalidaException
      */
-    public function encaminhar(Documento $documento, Utilizador $utilizador, array $servicoDestinoIds, ?string $comentario = null): Documento
+    public function reabrir(Documento $documento, Utilizador $utilizador, string $motivo): Documento
     {
-        $this->garantirTransicaoPermitida($documento, Documento::ESTADO_ENCAMINHADO, $utilizador);
+        if ($documento->estado_atual !== Documento::ESTADO_REJEITADO) {
+            throw new TransicaoInvalidaException('Só é possível reabrir documentos rejeitados.');
+        }
 
-        return DB::transaction(function () use ($documento, $utilizador, $servicoDestinoIds, $comentario) {
-            foreach ($servicoDestinoIds as $servicoId) {
-                Encaminhamento::create([
-                    'documento_id' => $documento->id,
-                    'servico_destino_id' => $servicoId,
-                    'encaminhado_por' => $utilizador->id,
-                    'encaminhado_em' => now(),
-                ]);
-            }
+        if (! in_array($utilizador->perfil?->sigla, ['MIN', 'ADMIN'], true)) {
+            throw new TransicaoInvalidaException('Não tem permissão para reabrir este documento.');
+        }
 
-            if ($comentario) {
-                $documento->comentarios()->create([
-                    'autor_id' => $utilizador->id,
-                    'texto' => $comentario,
-                    'criado_em' => now(),
-                ]);
-            }
+        $estadoDestino = $this->estadoAntesDaRejeicao($documento);
 
-            $this->registarEstado($documento, Documento::ESTADO_ENCAMINHADO, $utilizador);
-            $this->despacharNotificacao($documento, 'encaminhado', $servicoDestinoIds);
+        if ($estadoDestino === null) {
+            throw new TransicaoInvalidaException('Não foi possível determinar o estado anterior à rejeição.');
+        }
+
+        return DB::transaction(function () use ($documento, $estadoDestino, $utilizador, $motivo) {
+            $documento->estado_atual = $estadoDestino;
+            $documento->save();
+
+            EstadoDocumento::create([
+                'documento_id' => $documento->id,
+                'estado' => $estadoDestino,
+                'alterado_por' => $utilizador->id,
+                'justificacao' => $motivo,
+                'alterado_em' => now(),
+            ]);
+
+            Auditoria::create([
+                'utilizador_id' => $utilizador->id,
+                'acao' => 'reabertura_processo',
+                'entidade_afetada' => 'documentos',
+                'entidade_id' => $documento->id,
+                'detalhes' => [
+                    'estado_anterior' => Documento::ESTADO_REJEITADO,
+                    'estado_novo' => $estadoDestino,
+                    'motivo' => $motivo,
+                ],
+                'ocorrido_em' => now(),
+            ]);
 
             return $documento->fresh();
         });
-    }
-
-    public function iniciarAnalise(Documento $documento, Utilizador $utilizador): Documento
-    {
-        $this->garantirServicoDestinoAtual($documento, $utilizador);
-
-        return $this->transitar($documento, $utilizador, Documento::ESTADO_EM_ANALISE, validarPerfil: false);
-    }
-
-    public function validarServico(Documento $documento, Utilizador $utilizador): Documento
-    {
-        $this->garantirServicoDestinoAtual($documento, $utilizador);
-
-        return $this->transitar($documento, $utilizador, Documento::ESTADO_VALIDADO_SERVICO, validarPerfil: false);
-    }
-
-    public function arquivar(Documento $documento, Utilizador $utilizador): Documento
-    {
-        $documento = $this->transitar($documento, $utilizador, Documento::ESTADO_ARQUIVADO);
-        Auditoria::registar($utilizador->id, 'arquivar_documento', 'documentos', $documento->id);
-
-        return $documento;
     }
 
     /**
-     * Rejeicao: disponivel a partir de varios estados, exige justificacao
-     * obrigatoria e faz o documento retornar ao Ministro.
+     * Encontra a entrada de histórico imediatamente anterior à rejeição
+     * mais recente, para saber a que estado o documento deve regressar.
      */
-    public function rejeitar(Documento $documento, Utilizador $utilizador, string $justificacao): Documento
+    private function estadoAntesDaRejeicao(Documento $documento): ?string
     {
-        if (trim($justificacao) === '') {
-            throw new RuntimeException('A rejeicao exige justificacao obrigatoria.');
+        $entradaRejeicao = $documento->historicoEstados()
+            ->where('estado', Documento::ESTADO_REJEITADO)
+            ->orderByDesc('alterado_em')
+            ->first();
+
+        if (! $entradaRejeicao) {
+            return null;
         }
 
-        $origensPermitidas = [
-            Documento::ESTADO_SUBMETIDO,
-            Documento::ESTADO_ENCAMINHADO,
-            Documento::ESTADO_EM_ANALISE,
-        ];
+        $entradaAnterior = $documento->historicoEstados()
+            ->where('alterado_em', '<', $entradaRejeicao->alterado_em)
+            ->orderByDesc('alterado_em')
+            ->first();
 
-        if (! in_array($documento->estado_atual, $origensPermitidas, true)) {
-            throw new RuntimeException('Nao e possivel rejeitar um documento no estado atual.');
-        }
-
-        return DB::transaction(function () use ($documento, $utilizador, $justificacao) {
-            $this->registarEstado($documento, Documento::ESTADO_REJEITADO, $utilizador, $justificacao);
-            $this->despacharNotificacao($documento, 'rejeitado', [$documento->servico_destino_id]);
-            Auditoria::registar($utilizador->id, 'rejeitar_documento', 'documentos', $documento->id, ['justificacao' => $justificacao]);
-
-            return $documento->fresh();
-        });
+        return $entradaAnterior?->estado;
     }
 
-    // ------------------------------------------------------------------
-    // Metodos internos
-    // ------------------------------------------------------------------
-
-    private function transitar(Documento $documento, Utilizador $utilizador, string $estadoDestino, bool $validarPerfil = true): Documento
+    /**
+     * Regista a entrada inicial no histórico (estado "recepção") no
+     * momento em que o documento é criado. Sem isto, o histórico fica
+     * vazio até à primeira transição real, e ecrãs que dependem dele
+     * para saber "criado por" / "data de criação" ficam sem essa
+     * informação enquanto o documento não muda de estado.
+     */
+    public function registarCriacao(Documento $documento, Utilizador $utilizador): void
     {
-        if ($validarPerfil) {
-            $this->garantirTransicaoPermitida($documento, $estadoDestino, $utilizador);
-        }
-
-        return DB::transaction(function () use ($documento, $utilizador, $estadoDestino) {
-            $this->registarEstado($documento, $estadoDestino, $utilizador);
-
-            return $documento->fresh();
-        });
-    }
-
-    private function registarEstado(Documento $documento, string $estadoDestino, Utilizador $utilizador, ?string $justificacao = null): void
-    {
-        $documento->update(['estado_atual' => $estadoDestino]);
-
         EstadoDocumento::create([
             'documento_id' => $documento->id,
-            'estado' => $estadoDestino,
+            'estado' => $documento->estado_atual,
             'alterado_por' => $utilizador->id,
-            'justificacao' => $justificacao,
+            'justificacao' => null,
             'alterado_em' => now(),
         ]);
-
-        Auditoria::registar($utilizador->id, 'transicao_estado', 'documentos', $documento->id, [
-            'estado_destino' => $estadoDestino,
-        ]);
     }
 
-    private function garantirTransicaoPermitida(Documento $documento, string $estadoDestino, Utilizador $utilizador): void
+    /**
+     * Verifica se o utilizador pode executar a transição, sem a executar.
+     */
+    public function podeTransitar(Documento $documento, string $novoEstado, Utilizador $utilizador): bool
     {
-        $transicoesDoEstado = self::TRANSICOES[$documento->estado_atual] ?? [];
-
-        if (! array_key_exists($estadoDestino, $transicoesDoEstado)) {
-            throw new RuntimeException(sprintf(
-                'Transicao de "%s" para "%s" nao e permitida.',
-                $documento->estado_atual,
-                $estadoDestino
-            ));
+        if ($novoEstado === 'rejeitado') {
+            return $this->podeRejeitar($documento, $utilizador);
         }
 
-        $perfisAutorizados = $transicoesDoEstado[$estadoDestino];
+        $regra = $this->transicoes()[$documento->estado_atual][$novoEstado] ?? null;
 
-        if ($perfisAutorizados !== null && ! $utilizador->possuiPerfil(...$perfisAutorizados)) {
-            throw new RuntimeException('O seu perfil nao tem permissao para executar esta transicao.');
-        }
+        return $regra !== null && $regra($documento, $utilizador);
     }
 
-    /** Garante que o utilizador pertence ao servico de destino do documento (RF013-RF017). */
-    private function garantirServicoDestinoAtual(Documento $documento, Utilizador $utilizador): void
+    private function podeRejeitar(Documento $documento, Utilizador $utilizador): bool
     {
-        $ehDestino = Encaminhamento::where('documento_id', $documento->id)
-            ->where('servico_destino_id', $utilizador->perfil_id)
-            ->exists();
-
-        if (! $ehDestino) {
-            throw new RuntimeException('O seu servico nao e destinatario deste documento.');
+        if (! in_array($documento->estado_atual, self::ESTADOS_REJEITAVEIS, true)) {
+            return false;
         }
+
+        // "Qualquer serviço envolvido": quem criou, o serviço de destino atual, ou MIN/SECR.
+        return $utilizador->id === $documento->criado_por
+            || $utilizador->perfil_id === $documento->servico_destino_id
+            || in_array($utilizador->perfil?->sigla, ['MIN', 'SECR'], true);
     }
 
-    /** Despacha notificacao assincrona via fila Redis (RF015). */
-    private function despacharNotificacao(Documento $documento, string $evento, array $servicoIds): void
-    {
-        dispatch(new \App\Jobs\NotificarServicoJob($documento->id, $evento, array_filter($servicoIds)))
-            ->onQueue('notificacoes');
+    /**
+     * Executa a transição: valida, atualiza o documento, regista o histórico
+     * (estados_documento), regista auditoria e, se aplicável, guarda a justificação.
+     *
+     * @throws TransicaoInvalidaException
+     */
+    public function transitar(
+        Documento $documento,
+        string $novoEstado,
+        Utilizador $utilizador,
+        ?string $justificacao = null,
+    ): Documento {
+        if (! in_array($novoEstado, Documento::ESTADOS, true)) {
+            throw new TransicaoInvalidaException("Estado \"{$novoEstado}\" desconhecido.");
+        }
+
+        if ($novoEstado === 'rejeitado' && ! $justificacao) {
+            throw new TransicaoInvalidaException('A rejeição exige justificação obrigatória.');
+        }
+
+        if (! $this->podeTransitar($documento, $novoEstado, $utilizador)) {
+            throw new TransicaoInvalidaException(
+                "Transição de \"{$documento->estado_atual}\" para \"{$novoEstado}\" não é permitida para o perfil {$utilizador->perfil?->sigla}."
+            );
+        }
+
+        return DB::transaction(function () use ($documento, $novoEstado, $utilizador, $justificacao) {
+            $estadoAnterior = $documento->estado_atual;
+
+            $documento->estado_atual = $novoEstado;
+            $documento->save();
+
+            EstadoDocumento::create([
+                'documento_id' => $documento->id,
+                'estado' => $novoEstado,
+                'alterado_por' => $utilizador->id,
+                'justificacao' => $justificacao,
+                'alterado_em' => now(),
+            ]);
+
+            Auditoria::create([
+                'utilizador_id' => $utilizador->id,
+                'acao' => 'transicao_estado',
+                'entidade_afetada' => 'documentos',
+                'entidade_id' => $documento->id,
+                'detalhes' => [
+                    'estado_anterior' => $estadoAnterior,
+                    'estado_novo' => $novoEstado,
+                ],
+                'ocorrido_em' => now(),
+            ]);
+
+            // TODO: despachar notificação assíncrona (RF015) quando novoEstado
+            // for 'encaminhado' ou 'rejeitado' — via fila (Redis em produção,
+            // 'sync' em desenvolvimento local com XAMPP, ver QUEUE_CONNECTION no .env).
+
+            return $documento->fresh();
+        });
     }
 }

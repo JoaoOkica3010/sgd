@@ -1,21 +1,45 @@
 export type Perfil =
+  | "SADMIN" | "ADMIN"
   | "RECEP" | "SECR" | "MIN" | "CG" | "SG" | "AJ" | "AAP" | "AIM"
   | "GE" | "DGED" | "ITMA" | "DGVTT" | "IMP" | "ARQ" | "CONSULTA";
-
-/**
- * Perfis com regras proprias de workflow (nao sao "servicos" genericos de
- * analise). Qualquer perfil fora desta lista e tratado como servico de
- * destino de encaminhamento (pode iniciar analise / validar por servico).
- * O CONSULTA tem de estar aqui: e um perfil transversal só de leitura
- * (ver, pesquisar, imprimir) e nunca deve ganhar acoes de workflow.
- */
-export const PERFIS_SEM_ACOES_DE_SERVICO: Perfil[] = ["RECEP", "SECR", "MIN", "ARQ", "CONSULTA"];
 
 export interface Utilizador {
   id: string;
   nome: string;
   email: string;
   perfil: Perfil;
+}
+
+export interface Servico {
+  id: number;
+  nome: string;
+  descricao: string | null;
+  ativo: boolean;
+  criado_por?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PerfilResumo {
+  id: number;
+  sigla: Perfil;
+  nome_servico: string;
+}
+
+export interface UtilizadorAdmin {
+  id: string;
+  nome: string;
+  email: string;
+  ativo: boolean;
+  perfil_id: number;
+  perfil?: PerfilResumo;
+}
+
+export interface PaginaGenerica<T> {
+  data: T[];
+  current_page: number;
+  last_page: number;
+  total: number;
 }
 
 export type EstadoDocumento =
@@ -45,6 +69,10 @@ export interface Documento {
   observacoes?: string | null;
   servico_destino_id?: number | null;
   anexos?: Anexo[];
+  assinatura?: {
+    utilizador: { id: string; nome: string } | null;
+    assinado_em: string;
+  } | null;
 }
 
 export interface Anexo {

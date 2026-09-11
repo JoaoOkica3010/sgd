@@ -2,32 +2,37 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Perfil extends Model
 {
-    use HasFactory;
+protected $table = 'perfis';
 
-   protected $table = 'perfis';    
-   protected $fillable = ['sigla', 'nome_servico', 'permissoes'];
+    protected $fillable = ['sigla', 'nome_servico', 'servico_id', 'permissoes'];
 
     protected $casts = [
         'permissoes' => 'array',
     ];
 
-    /** Os 14 servicos previstos na seccao 4.1 do Documento de Analise de Requisitos. */
-    public const SIGLAS = [
-        'RECEP', 'SECR', 'MIN', 'CG', 'SG', 'AJ', 'AAP', 'AIM',
-        'GE', 'DGED', 'ITMA', 'DGVTT', 'IMP', 'ARQ',
-    ];
-
-    /** Perfil de acesso apenas de leitura: ver, pesquisar e imprimir documentos. */
-    public const SIGLA_CONSULTA = 'CONSULTA';
-
     public function utilizadores(): HasMany
     {
-        return $this->hasMany(Utilizador::class);
+        return $this->hasMany(Utilizador::class, 'perfil_id');
+    }
+
+    /**
+     * Serviço de destino associado a este perfil (ex.: o perfil ARQ
+     * pertence ao serviço "Arquivo"). Nulo para perfis técnicos como
+     * ADMIN/SADMIN, que não representam um serviço de destino próprio.
+     */
+    public function servico(): BelongsTo
+    {
+        return $this->belongsTo(Servico::class, 'servico_id');
+    }
+
+    public function temPermissao(string $permissao): bool
+    {
+        return in_array($permissao, $this->permissoes ?? [], true);
     }
 }

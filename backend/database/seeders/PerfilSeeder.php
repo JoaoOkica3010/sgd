@@ -14,6 +14,8 @@ class PerfilSeeder extends Seeder
     public function run(): void
     {
         $perfis = [
+            ['sigla' => 'SADMIN', 'nome_servico' => 'Super Administrador'],
+            ['sigla' => 'ADMIN', 'nome_servico' => 'Administrador do Sistema'],
             ['sigla' => 'RECEP', 'nome_servico' => 'Recepcionista'],
             ['sigla' => 'SECR', 'nome_servico' => 'Secretariado'],
             ['sigla' => 'MIN', 'nome_servico' => 'Ministro'],
@@ -28,7 +30,7 @@ class PerfilSeeder extends Seeder
             ['sigla' => 'DGVTT', 'nome_servico' => 'Direcao Geral de Viacao e Transportes Terrestres'],
             ['sigla' => 'IMP', 'nome_servico' => 'Instituto Maritimo Portuario'],
             ['sigla' => 'ARQ', 'nome_servico' => 'Arquivo'],
-            ['sigla' => Perfil::SIGLA_CONSULTA, 'nome_servico' => 'Consulta (só leitura)'],
+            ['sigla' => 'CONSULTA', 'nome_servico' => 'Consulta (só leitura)'],
         ];
 
         foreach ($perfis as $perfil) {

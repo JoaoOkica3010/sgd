@@ -47,6 +47,11 @@ export async function rejeitarDocumento(id: string, justificacao: string) {
   return data;
 }
 
+export async function reabrirDocumento(id: string, motivo: string) {
+  const { data } = await apiClient.post<Documento>(`/documentos/${id}/reabrir`, { motivo });
+  return data;
+}
+
 export async function arquivarDocumento(id: string) {
   const { data } = await apiClient.post<Documento>(`/documentos/${id}/arquivar`);
   return data;
@@ -64,5 +69,10 @@ export async function validarServicoDocumento(id: string) {
 
 export async function obterHistoricoDocumento(id: string) {
   const { data } = await apiClient.get<EstadoHistorico[]>(`/documentos/${id}/historico`);
+  return data;
+}
+
+export async function assinarDocumento(id: string) {
+  const { data } = await apiClient.post<Documento>(`/documentos/${id}/assinar`);
   return data;
 }

@@ -3,107 +3,297 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Anexo;
 use App\Models\Auditoria;
 use App\Models\Documento;
-use Illuminate\Http\JsonResponse;
+use App\Services\ConversorOfficeService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-/**
- * RF007-RF008: multiplos anexos por registo, ate 20 MB cada.
- * Plano de Seguranca, seccao 7: validacao pelo tipo real do ficheiro
- * (nao apenas extensao) e verificacao antivirus antes de disponibilizar.
- */
 class AnexoController extends Controller
 {
-    private const TIPOS_MIME_PERMITIDOS = [
+    public function __construct(private ConversorOfficeService $conversorOffice)
+    {
+    }
+
+    /**
+     * Tipos MIME aceites, validados pelo conteúdo real do ficheiro
+     * (finfo), nunca apenas pela extensão (secção 4.6 do DOC02).
+     */
+    private const MIME_PERMITIDOS = [
         'application/pdf',
+        'image/jpeg',
+        'image/png',
         'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'application/vnd.ms-excel',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'image/jpeg',
-        'image/png',
     ];
 
-    public function store(Request $request, Documento $documento): JsonResponse
+    /**
+     * POST /documentos/{documento}/anexos (RF007, RF008)
+     */
+    public function store(Request $request, Documento $documento)
     {
-        $this->authorize('editar', $documento);
+        Gate::authorize('carregar', [Anexo::class, $documento]);
 
-        $maxKb = (int) config('sgd.anexo_tamanho_maximo_mb', 20) * 1024;
+        $maxKb = ((int) config('sgd.anexo_tamanho_maximo_mb', 20)) * 1024;
 
         $request->validate([
             'ficheiro' => ['required', 'file', "max:{$maxKb}"],
         ]);
 
         $ficheiro = $request->file('ficheiro');
-        $tipoReal = $ficheiro->getMimeType(); // deteta pelo conteudo, nao pela extensao
 
-        if (! in_array($tipoReal, self::TIPOS_MIME_PERMITIDOS, true)) {
+        // Deteção do tipo real pelo conteúdo binário, não pela extensão.
+        $mimeReal = $ficheiro->getMimeType();
+
+        if (! in_array($mimeReal, self::MIME_PERMITIDOS, true)) {
             return response()->json([
-                'error' => ['code' => 'unprocessable_entity', 'message' => 'Tipo de ficheiro nao permitido.'],
+                'error' => [
+                    'code' => 'unprocessable_entity',
+                    'message' => "Tipo de ficheiro não permitido ({$mimeReal}).",
+                ],
             ], 422);
         }
 
-        if (! $this->passaVerificacaoAntivirus($ficheiro->getRealPath())) {
-            return response()->json([
-                'error' => ['code' => 'unprocessable_entity', 'message' => 'Ficheiro rejeitado pela verificacao antivirus.'],
-            ], 422);
-        }
+        $disco = config('filesystems.default', 'local');
+        $nomeArmazenado = Str::uuid().'.'.$ficheiro->getClientOriginalExtension();
+        $caminho = $ficheiro->storeAs('anexos/'.$documento->id, $nomeArmazenado, $disco);
 
-        // Em producao, config('sgd.disco_anexos') aponta para 's3' (MinIO).
-        // Em desenvolvimento sem MinIO (ex.: XAMPP), .env define 'local', que
-        // grava em storage/app/private — sem alterar nenhuma linha de codigo.
-        $caminho = $ficheiro->store("documentos/{$documento->id}", config('sgd.disco_anexos'));
-
-        $anexo = $documento->anexos()->create([
-            'id' => (string) Str::uuid(),
+        $anexo = Anexo::create([
+            'documento_id' => $documento->id,
             'nome_ficheiro' => $ficheiro->getClientOriginalName(),
             'caminho_minio' => $caminho,
             'tamanho_bytes' => $ficheiro->getSize(),
-            'tipo_mime' => $tipoReal,
+            'tipo_mime' => $mimeReal,
             'carregado_por' => $request->user()->id,
         ]);
 
-        Auditoria::registar($request->user()->id, 'carregar_anexo', 'anexos', $anexo->id);
+        Auditoria::create([
+            'utilizador_id' => $request->user()->id,
+            'acao' => 'carregar_anexo',
+            'entidade_afetada' => 'anexos',
+            'entidade_id' => $anexo->id,
+            'endereco_ip' => $request->ip(),
+            'detalhes' => ['documento_id' => $documento->id, 'nome_ficheiro' => $anexo->nome_ficheiro],
+            'ocorrido_em' => now(),
+        ]);
 
         return response()->json($anexo, 201);
     }
 
-    public function download(string $id)
+    /**
+     * POST /anexos/{anexo}/nova-versao
+     *
+     * Substitui o ficheiro de um anexo já existente — fluxo pensado para
+     * quando o utilizador descarrega um Word/Excel, edita-o no
+     * computador (Word, Excel, LibreOffice...) e volta a carregar a
+     * versão corrigida, mantendo o mesmo anexo (não cria um novo).
+     */
+    public function atualizar(Request $request, Anexo $anexo)
     {
-        $anexo = \App\Models\Anexo::findOrFail($id);
-        $this->authorize('ver', $anexo->documento);
+        Gate::authorize('carregar', [Anexo::class, $anexo->documento]);
 
-        return Storage::disk(config('sgd.disco_anexos'))->download($anexo->caminho_minio, $anexo->nome_ficheiro);
-    }
+        $maxKb = ((int) config('sgd.anexo_tamanho_maximo_mb', 20)) * 1024;
 
-    public function destroy(Request $request, string $id): JsonResponse
-    {
-        $anexo = \App\Models\Anexo::findOrFail($id);
-        $this->authorize('editar', $anexo->documento);
+        $request->validate([
+            'ficheiro' => ['required', 'file', "max:{$maxKb}"],
+        ]);
 
-        if (! $anexo->documento->editavel()) {
+        $ficheiro = $request->file('ficheiro');
+        $mimeReal = $ficheiro->getMimeType();
+
+        if (! in_array($mimeReal, self::MIME_PERMITIDOS, true)) {
             return response()->json([
-                'error' => ['code' => 'invalid_transition', 'message' => 'So e possivel remover anexos antes da validacao.'],
-            ], 409);
+                'error' => [
+                    'code' => 'unprocessable_entity',
+                    'message' => "Tipo de ficheiro não permitido ({$mimeReal}).",
+                ],
+            ], 422);
         }
 
-        Storage::disk(config('sgd.disco_anexos'))->delete($anexo->caminho_minio);
-        $anexo->delete();
+        $disco = config('filesystems.default', 'local');
+        $caminhoAntigo = $anexo->caminho_minio;
+        $tamanhoAntigo = $anexo->tamanho_bytes;
 
-        Auditoria::registar($request->user()->id, 'remover_anexo', 'anexos', $id);
+        $nomeArmazenado = Str::uuid().'.'.$ficheiro->getClientOriginalExtension();
+        $novoCaminho = $ficheiro->storeAs('anexos/'.$anexo->documento_id, $nomeArmazenado, $disco);
 
-        return response()->json(null, 204);
+        $anexo->update([
+            'nome_ficheiro' => $ficheiro->getClientOriginalName(),
+            'caminho_minio' => $novoCaminho,
+            'tamanho_bytes' => $ficheiro->getSize(),
+            'tipo_mime' => $mimeReal,
+        ]);
+
+        // Só apaga o ficheiro antigo depois de o novo estar guardado e o
+        // registo atualizado com sucesso — nunca fica sem nenhum ficheiro
+        // válido, mesmo que algo falhe a meio.
+        Storage::disk($disco)->delete($caminhoAntigo);
+
+        Auditoria::create([
+            'utilizador_id' => $request->user()->id,
+            'acao' => 'atualizar_anexo',
+            'entidade_afetada' => 'anexos',
+            'entidade_id' => $anexo->id,
+            'endereco_ip' => $request->ip(),
+            'detalhes' => [
+                'documento_id' => $anexo->documento_id,
+                'nome_ficheiro' => $anexo->nome_ficheiro,
+                'tamanho_anterior' => $tamanhoAntigo,
+                'tamanho_novo' => $anexo->tamanho_bytes,
+            ],
+            'ocorrido_em' => now(),
+        ]);
+
+        return $anexo->fresh();
     }
 
     /**
-     * Integracao com motor antivirus (ex.: ClamAV via socket local).
-     * Placeholder pronto a ligar ao clamdscan/clamav-daemon em producao.
+     * GET /documentos/{documento}/anexos
      */
-    private function passaVerificacaoAntivirus(string $caminhoTemporario): bool
+    public function index(Request $request, Documento $documento)
     {
-        return true; // TODO: integrar com ClamAV antes de ir para producao
+        Gate::authorize('ver', $documento);
+
+        return $documento->anexos()->with('carregadoPor:id,nome')->get();
+    }
+
+    /**
+     * GET /anexos/{anexo}/download
+     */
+    public function download(Request $request, Anexo $anexo)
+    {
+        Gate::authorize('ver', $anexo);
+
+        $disco = config('filesystems.default', 'local');
+
+        if (! Storage::disk($disco)->exists($anexo->caminho_minio)) {
+            return response()->json([
+                'error' => ['code' => 'not_found', 'message' => 'Ficheiro não encontrado no armazenamento.'],
+            ], 404);
+        }
+
+        Auditoria::create([
+            'utilizador_id' => $request->user()->id,
+            'acao' => 'download_anexo',
+            'entidade_afetada' => 'anexos',
+            'entidade_id' => $anexo->id,
+            'endereco_ip' => $request->ip(),
+            'ocorrido_em' => now(),
+        ]);
+
+        return Storage::disk($disco)->download($anexo->caminho_minio, $anexo->nome_ficheiro);
+    }
+
+    /**
+     * GET /anexos/{anexo}/preview-pdf
+     *
+     * Para anexos Word/Excel/PowerPoint (sem visualizador nativo no
+     * browser): converte-os para PDF via LibreOffice e devolve esse PDF,
+     * para pré-visualização no mesmo modal já usado para PDFs. Anexos
+     * que já são PDF são devolvidos tal como estão (não há nada a
+     * converter).
+     */
+    public function previewPdf(Request $request, Anexo $anexo)
+    {
+        Gate::authorize('ver', $anexo);
+
+        $disco = config('filesystems.default', 'local');
+
+        if (! Storage::disk($disco)->exists($anexo->caminho_minio)) {
+            return response()->json([
+                'error' => ['code' => 'not_found', 'message' => 'Ficheiro não encontrado no armazenamento.'],
+            ], 404);
+        }
+
+        if ($anexo->tipo_mime === 'application/pdf') {
+            return Storage::disk($disco)->response($anexo->caminho_minio, $anexo->nome_ficheiro, [
+                'Content-Type' => 'application/pdf',
+            ]);
+        }
+
+        if (! $this->conversorOffice->converteMime($anexo->tipo_mime)) {
+            return response()->json([
+                'error' => [
+                    'code' => 'unprocessable_entity',
+                    'message' => 'Este tipo de ficheiro não pode ser pré-visualizado.',
+                ],
+            ], 422);
+        }
+
+        // O LibreOffice precisa de um caminho de ficheiro local — se o
+        // disco configurado não for local (ex.: S3/MinIO), copia-se
+        // primeiro para um ficheiro temporário (ver obterCaminhoLocal).
+        try {
+            $caminhoOrigem = $this->obterCaminhoLocal($disco, $anexo->caminho_minio);
+            $caminhoPdf = $this->conversorOffice->converterParaPdf($caminhoOrigem);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'error' => ['code' => 'conversion_failed', 'message' => $e->getMessage()],
+            ], 500);
+        } finally {
+            if ($disco !== 'local' && $disco !== 'public' && isset($caminhoOrigem) && is_file($caminhoOrigem)) {
+                @unlink($caminhoOrigem);
+            }
+        }
+
+        $nomePdf = pathinfo($anexo->nome_ficheiro, PATHINFO_FILENAME).'.pdf';
+        $pastaTrabalho = dirname($caminhoPdf);
+
+        app()->terminating(function () use ($pastaTrabalho) {
+            $this->conversorOffice->apagarPasta($pastaTrabalho);
+        });
+
+        return response()->file($caminhoPdf, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$nomePdf.'"',
+        ]);
+    }
+
+    /**
+     * Devolve um caminho de ficheiro local para o anexo, copiando-o para
+     * um ficheiro temporário se o disco configurado não for local.
+     */
+    private function obterCaminhoLocal(string $disco, string $caminhoRelativo): string
+    {
+        if ($disco === 'local' || $disco === 'public') {
+            return Storage::disk($disco)->path($caminhoRelativo);
+        }
+
+        $extensao = pathinfo($caminhoRelativo, PATHINFO_EXTENSION);
+        $temporario = storage_path('app/conversao-office/origem-'.Str::uuid().'.'.$extensao);
+        @mkdir(dirname($temporario), 0775, true);
+        file_put_contents($temporario, Storage::disk($disco)->get($caminhoRelativo));
+
+        return $temporario;
+    }
+
+    /**
+     * DELETE /anexos/{anexo}
+     */
+    public function destroy(Request $request, Anexo $anexo)
+    {
+        Gate::authorize('apagar', $anexo);
+
+        $disco = config('filesystems.default', 'local');
+        Storage::disk($disco)->delete($anexo->caminho_minio);
+
+        Auditoria::create([
+            'utilizador_id' => $request->user()->id,
+            'acao' => 'remover_anexo',
+            'entidade_afetada' => 'anexos',
+            'entidade_id' => $anexo->id,
+            'endereco_ip' => $request->ip(),
+            'detalhes' => ['documento_id' => $anexo->documento_id, 'nome_ficheiro' => $anexo->nome_ficheiro],
+            'ocorrido_em' => now(),
+        ]);
+
+        $anexo->delete();
+
+        return response()->json(['message' => 'Anexo removido.']);
     }
 }

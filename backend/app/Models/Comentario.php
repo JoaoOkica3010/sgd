@@ -2,23 +2,22 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Comentario extends Model
 {
-    use HasFactory;
-
     public $timestamps = false;
 
-    protected $fillable = ['documento_id', 'autor_id', 'texto', 'criado_em'];
+    protected $fillable = ['documento_id', 'autor_id', 'texto', 'estado_criacao', 'criado_em'];
 
-    protected $casts = ['criado_em' => 'datetime'];
+    protected $casts = [
+        'criado_em' => 'datetime',
+    ];
 
     public function documento(): BelongsTo
     {
-        return $this->belongsTo(Documento::class);
+        return $this->belongsTo(Documento::class, 'documento_id');
     }
 
     public function autor(): BelongsTo
