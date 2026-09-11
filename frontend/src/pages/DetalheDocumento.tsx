@@ -2,7 +2,7 @@ import { FichaDocumento } from "../components/FichaDocumento";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
-  arquivarDocumento, encaminharDocumento, iniciarAnaliseDocumento, obterDocumento,
+  arquivarDocumento, desarquivarDocumento, encaminharDocumento, iniciarAnaliseDocumento, obterDocumento,
   obterHistoricoDocumento, reabrirDocumento, rejeitarDocumento, submeterDocumento, validarDocumento,
   validarServicoDocumento, assinarDocumento as assinarDocumentoApi,
 } from "../api/documentos";
@@ -224,6 +224,7 @@ export function DetalheDocumento() {
   const podeIniciarAnalise = documento.estado_atual === "encaminhado" && perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ" && perfil !== "CONSULTA";
   const podeValidarServico = documento.estado_atual === "em_analise" && perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ" && perfil !== "CONSULTA";
   const podeArquivar = documento.estado_atual === "validado_servico" && perfil === "ARQ";
+  const podeDesarquivar = documento.estado_atual === "arquivado" && perfil === "ARQ";
   const podeRejeitar = (documento.estado_atual === "submetido" && perfil === "SECR") ||
     (["encaminhado", "em_analise"].includes(documento.estado_atual) &&
       perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ" && perfil !== "CONSULTA");
@@ -240,7 +241,7 @@ export function DetalheDocumento() {
   const podeAssinar = perfil === "MIN" && documento.estado_atual === "validado_secretariado" && !documento.assinatura;
 
   const temAcoes = podeSubmeter || podeValidarSecretariado || podeEncaminhar || podeIniciarAnalise ||
-    podeValidarServico || podeArquivar || podeRejeitar || podeAssinar;
+    podeValidarServico || podeArquivar || podeDesarquivar || podeRejeitar || podeAssinar;
 
   async function assinarDocumento() {
     if (!id) return;
@@ -581,6 +582,15 @@ export function DetalheDocumento() {
                       className="botao-vermelho-alerta" style={estilos.botaoPrimario}
                     >
                       Arquivar
+                    </button>
+                  )}
+                  {podeDesarquivar && (
+                    <button
+                      disabled={aProcessar}
+                      onClick={() => id && executarAcao(() => desarquivarDocumento(id))}
+                      className="botao-outline-tema" style={estilos.botaoSecundario}
+                    >
+                      Desarquivar
                     </button>
                   )}
                   {podeRejeitar && (

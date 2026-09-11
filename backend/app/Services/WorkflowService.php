@@ -53,6 +53,12 @@ class WorkflowService
                 'arquivado' => fn (Documento $doc, Utilizador $u) =>
                     $u->perfil?->sigla === 'ARQ',
             ],
+            // Reverso de "arquivado" -> "validado_servico" (ver
+            // DocumentoController::desarquivar / DocumentoPolicy::desarquivar).
+            'arquivado' => [
+                'validado_servico' => fn (Documento $doc, Utilizador $u) =>
+                    $u->perfil?->sigla === 'ARQ',
+            ],
         ];
     }
 
