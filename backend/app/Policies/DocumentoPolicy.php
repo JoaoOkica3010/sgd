@@ -33,6 +33,7 @@ class DocumentoPolicy
             return in_array($documento->estado_atual, [
                 Documento::ESTADO_VALIDADO_SECRETARIADO,
                 Documento::ESTADO_ENCAMINHADO,
+                Documento::ESTADO_REJEITADO,
             ], true);
         }
 
@@ -67,7 +68,15 @@ class DocumentoPolicy
 
     public function validarSecretariado(Utilizador $utilizador, Documento $documento): bool
     {
-        return $utilizador->possuiPerfil('SECR') && $documento->estado_atual === Documento::ESTADO_SUBMETIDO;
+        if ($documento->estado_atual === Documento::ESTADO_SUBMETIDO) {
+            return $utilizador->possuiPerfil('SECR');
+        }
+
+        if ($documento->estado_atual === Documento::ESTADO_REJEITADO) {
+            return $utilizador->possuiPerfil('MIN', 'SECR');
+        }
+
+        return false;
     }
 
     public function encaminhar(Utilizador $utilizador, Documento $documento): bool
