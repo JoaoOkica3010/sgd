@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { listarDocumentos } from "../api/documentos";
+import { gerarRelatorio, type TipoRelatorioId } from "../api/relatorios";
 import { ROTULOS_ESTADO, type Documento } from "../types";
 import { useAuth } from "../auth/AuthContext";
 import { Cabecalho } from "../components/Cabecalho";
@@ -35,7 +36,7 @@ import { Rodape } from "../components/Rodape";
 const ITENS_POR_PAGINA = 2;
 
 type TipoRelatorio = {
-  id: string;
+  id: TipoRelatorioId;
   inicial: string;
   nome: string;
   descricao: string;
@@ -357,11 +358,24 @@ export function Dashboard() {
 }
 
 function PainelRelatorios() {
-  const [relatorioAcionado, setRelatorioAcionado] = useState<string | null>(null);
+  const [aGerar, setAGerar] = useState<TipoRelatorioId | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
 
-  function gerarRelatorio(tipo: TipoRelatorio) {
-    // TODO: ligar ao endpoint real de geração de relatórios quando existir.
-    setRelatorioAcionado(tipo.nome);
+  async function handleGerarRelatorio(tipo: TipoRelatorio) {
+    setErro(null);
+    setAGerar(tipo.id);
+    try {
+      await gerarRelatorio(tipo.id);
+    } catch (e) {
+      const status = (e as { response?: { status?: number } })?.response?.status;
+      setErro(
+        status === 403
+          ? `Não tem permissão para gerar "${tipo.nome}".`
+          : `Não foi possível gerar "${tipo.nome}". Tente novamente.`
+      );
+    } finally {
+      setAGerar(null);
+    }
   }
 
   return (
@@ -371,12 +385,7 @@ function PainelRelatorios() {
         dados atuais do SGD.
       </p>
 
-      {relatorioAcionado && (
-        <p style={estilos.mensagemEstado}>
-          Geração de "{relatorioAcionado}" ainda não está disponível — funcionalidade em
-          desenvolvimento.
-        </p>
-      )}
+      {erro && <p style={{ ...estilos.mensagemEstado, color: "#b3261e" }}>{erro}</p>}
 
       <div style={estilos.grelhaRelatorios}>
         {TIPOS_RELATORIO.map((tipo) => (
@@ -386,10 +395,14 @@ function PainelRelatorios() {
             <div style={estilos.descricaoRelatorio}>{tipo.descricao}</div>
             <button
               type="button"
-              style={estilos.botaoGerarRelatorio}
-              onClick={() => gerarRelatorio(tipo)}
+              style={{
+                ...estilos.botaoGerarRelatorio,
+                ...(aGerar === tipo.id ? estilos.botaoGerarRelatorioDesativado : {}),
+              }}
+              disabled={aGerar === tipo.id}
+              onClick={() => handleGerarRelatorio(tipo)}
             >
-              Gerar relatório
+              {aGerar === tipo.id ? "A gerar..." : "Gerar relatório"}
             </button>
           </div>
         ))}
@@ -635,6 +648,10 @@ const estilos: Record<string, React.CSSProperties> = {
     backgroundColor: "var(--cor-primaria)",
     color: "#ffffff",
     cursor: "pointer",
+  },
+  botaoGerarRelatorioDesativado: {
+    opacity: 0.6,
+    cursor: "not-allowed",
   },
   grelhaPrincipal: {
     display: "grid",
