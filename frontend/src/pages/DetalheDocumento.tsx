@@ -2,7 +2,7 @@ import { FichaDocumento } from "../components/FichaDocumento";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
-  arquivarDocumento, encaminharDocumento, iniciarAnaliseDocumento, obterDocumento,
+  arquivarDocumento, desarquivarDocumento, encaminharDocumento, iniciarAnaliseDocumento, obterDocumento,
   obterHistoricoDocumento, reabrirDocumento, rejeitarDocumento, submeterDocumento, validarDocumento,
   validarServicoDocumento, assinarDocumento as assinarDocumentoApi,
 } from "../api/documentos";
@@ -221,26 +221,27 @@ export function DetalheDocumento() {
   const podeSubmeter = documento.estado_atual === "recepcao" && (perfil === "RECEP" || perfil === "SECR");
   const podeValidarSecretariado = documento.estado_atual === "submetido" && perfil === "SECR";
   const podeEncaminhar = documento.estado_atual === "validado_secretariado" && perfil === "MIN";
-  const podeIniciarAnalise = documento.estado_atual === "encaminhado" && perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ";
-  const podeValidarServico = documento.estado_atual === "em_analise" && perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ";
+  const podeIniciarAnalise = documento.estado_atual === "encaminhado" && perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ" && perfil !== "CONSULTA";
+  const podeValidarServico = documento.estado_atual === "em_analise" && perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ" && perfil !== "CONSULTA";
   const podeArquivar = documento.estado_atual === "validado_servico" && perfil === "ARQ";
+  const podeDesarquivar = documento.estado_atual === "arquivado" && perfil === "ARQ";
   const podeRejeitar = (documento.estado_atual === "submetido" && perfil === "SECR") ||
     (["encaminhado", "em_analise"].includes(documento.estado_atual) &&
-      perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ");
+      perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ" && perfil !== "CONSULTA");
 
   const documentoTerminal = documento.estado_atual === "arquivado" || documento.estado_atual === "rejeitado";
 
   const podeAnexar =
     (perfil === "RECEP" && documento.estado_atual === "recepcao") ||
     (perfil === "SECR" && ["recepcao", "submetido"].includes(documento.estado_atual)) ||
-    (perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ" &&
+    (perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ" && perfil !== "CONSULTA" &&
       ["encaminhado", "em_analise"].includes(documento.estado_atual)) ||
     (perfil === "ADMIN" && !documentoTerminal);
 
   const podeAssinar = perfil === "MIN" && documento.estado_atual === "validado_secretariado" && !documento.assinatura;
 
   const temAcoes = podeSubmeter || podeValidarSecretariado || podeEncaminhar || podeIniciarAnalise ||
-    podeValidarServico || podeArquivar || podeRejeitar || podeAssinar;
+    podeValidarServico || podeArquivar || podeDesarquivar || podeRejeitar || podeAssinar;
 
   async function assinarDocumento() {
     if (!id) return;
@@ -590,6 +591,15 @@ export function DetalheDocumento() {
                       className="botao-vermelho-alerta" style={estilos.botaoPrimario}
                     >
                       Arquivar
+                    </button>
+                  )}
+                  {podeDesarquivar && (
+                    <button
+                      disabled={aProcessar}
+                      onClick={() => id && executarAcao(() => desarquivarDocumento(id))}
+                      className="botao-outline-tema" style={estilos.botaoSecundario}
+                    >
+                      Desarquivar
                     </button>
                   )}
                   {podeRejeitar && (

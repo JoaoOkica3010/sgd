@@ -12,7 +12,10 @@ return [
 
     'allowed_headers' => ['*'],
 
-    'exposed_headers' => [],
+    // Content-Disposition precisa de ser exposto para o frontend conseguir
+    // ler o nome de ficheiro sugerido pelos endpoints de relatórios
+    // (RelatorioController) ao descarregar o CSV via XHR/fetch.
+    'exposed_headers' => ['Content-Disposition'],
 
     'max_age' => 0,
 

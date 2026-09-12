@@ -58,6 +58,11 @@ export async function arquivarDocumento(id: string) {
   return data;
 }
 
+export async function desarquivarDocumento(id: string) {
+  const { data } = await apiClient.post<Documento>(`/documentos/${id}/desarquivar`);
+  return data;
+}
+
 export async function iniciarAnaliseDocumento(id: string) {
   const { data } = await apiClient.post<Documento>(`/documentos/${id}/iniciar-analise`);
   return data;

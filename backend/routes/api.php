@@ -7,8 +7,10 @@ use App\Http\Controllers\Api\ComentarioController;
 use App\Http\Controllers\Api\ConfigController;
 use App\Http\Controllers\Api\DocumentoController;
 use App\Http\Controllers\Api\PerfilController;
+use App\Http\Controllers\Api\RelatorioController;
 use App\Http\Controllers\Api\ServicoController;
 use App\Http\Controllers\Api\UtilizadorController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -23,7 +25,7 @@ Route::prefix('v1')->group(function () {
 
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::post('/auth/refresh', [AuthController::class, 'refresh']);
-        Route::get('/utilizador', fn (\Illuminate\Http\Request $r) => $r->user()->load('perfil'));
+        Route::get('/utilizador', fn (Request $r) => $r->user()->load('perfil'));
 
         // ---- Documentos ----
         Route::get('/documentos', [DocumentoController::class, 'index']);
@@ -33,6 +35,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/documentos/{documento}/submeter', [DocumentoController::class, 'submeter']);
         Route::post('/documentos/{documento}/validar', [DocumentoController::class, 'validar']);
         Route::post('/documentos/{documento}/encaminhar', [DocumentoController::class, 'encaminhar']);
+        Route::post('/documentos/{documento}/iniciar-analise', [DocumentoController::class, 'iniciarAnalise']);
+        Route::post('/documentos/{documento}/validar-servico', [DocumentoController::class, 'validarServico']);
         Route::post('/documentos/{documento}/assinar', [DocumentoController::class, 'assinar']);
         Route::post('/documentos/{documento}/rejeitar', [DocumentoController::class, 'rejeitar']);
         Route::post('/documentos/{documento}/reabrir', [DocumentoController::class, 'reabrir']);
@@ -61,6 +65,14 @@ Route::prefix('v1')->group(function () {
         Route::put('/utilizadores/{utilizador}', [UtilizadorController::class, 'update']);
         Route::get('/perfis', [PerfilController::class, 'index']);
         Route::get('/auditoria', [AuditoriaController::class, 'index']);
+
+        // ---- Relatórios (aba "Relatórios" do Dashboard) ----
+        Route::get('/relatorios/documentos-por-estado', [RelatorioController::class, 'documentosPorEstado']);
+        Route::get('/relatorios/documentos-por-servico', [RelatorioController::class, 'documentosPorServico']);
+        Route::get('/relatorios/fora-de-prazo', [RelatorioController::class, 'foraDePrazo']);
+        Route::get('/relatorios/atividade-por-utilizador', [RelatorioController::class, 'atividadePorUtilizador']);
+        Route::get('/relatorios/volume-mensal', [RelatorioController::class, 'volumeMensal']);
+        Route::get('/relatorios/auditoria-acessos', [RelatorioController::class, 'auditoriaAcessos']);
 
         // ---- Serviços (SADMIN) ----
         Route::get('/servicos', [ServicoController::class, 'index']);

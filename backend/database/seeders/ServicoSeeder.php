@@ -9,8 +9,8 @@ use Illuminate\Database\Seeder;
 /**
  * Popula "servicos" a partir dos perfis "de departamento" — exclui os
  * perfis técnicos/de fluxo de trabalho (ADMIN, SADMIN, RECEP, SECR, MIN,
- * ARQ), que nunca são um destino de encaminhamento escolhido pelo
- * Ministro — e liga cada perfil de departamento ao seu serviço.
+ * ARQ, CONSULTA), que nunca são um destino de encaminhamento escolhido
+ * pelo Ministro — e liga cada perfil de departamento ao seu serviço.
  *
  * Complementa a migration 2026_08_29_000001_criar_servicos_e_migrar_dados:
  * essa migration só migra dados que já existiam em "perfis" no momento
@@ -22,7 +22,7 @@ class ServicoSeeder extends Seeder
 {
     public function run(): void
     {
-        $siglasTecnicas = ['ADMIN', 'SADMIN', 'RECEP', 'SECR', 'MIN', 'ARQ'];
+        $siglasTecnicas = ['ADMIN', 'SADMIN', 'RECEP', 'SECR', 'MIN', 'ARQ', 'CONSULTA'];
 
         Perfil::whereNotIn('sigla', $siglasTecnicas)->whereNull('servico_id')->get()->each(function (Perfil $perfil) {
             $servico = Servico::firstOrCreate(
