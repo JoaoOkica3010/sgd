@@ -67,14 +67,29 @@ export function ListaDocumentos() {
       <main style={estilos.conteudo}>
         <div style={estilos.cabecalhoLista}>
           <h1 style={estilos.titulo}>Documentos</h1>
-          <span style={estilos.contagem}>
-            {documentosFiltrados.length} registo{documentosFiltrados.length === 1 ? "" : "s"} · mês atual
-          </span>
+          <div style={estilos.grupoTopoDireita}>
+            <span style={estilos.contagem}>
+              {documentosFiltrados.length} registo{documentosFiltrados.length === 1 ? "" : "s"} · mês atual
+            </span>
+            <Link to="/dashboard" style={estilos.botaoDashboard}>
+              Ver dashboard →
+            </Link>
+          </div>
         </div>
 
         <div style={estilos.barraFerramentas}>
           <div style={estilos.campoPesquisaContentor}>
-            <span style={estilos.iconePesquisa}>⌕</span>
+            <svg
+              style={estilos.iconePesquisa}
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              aria-hidden="true"
+            >
+              <circle cx="7" cy="7" r="5.25" stroke="currentColor" strokeWidth="1.5" />
+              <line x1="11.2" y1="11.2" x2="14.5" y2="14.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
             <input
               placeholder="Pesquisar por número, remetente ou assunto..."
               value={termo}
@@ -95,18 +110,13 @@ export function ListaDocumentos() {
             ))}
           </select>
 
-          <div style={estilos.colunaAcoesTopo}>
-            <Link to="/dashboard" style={estilos.botaoDashboard}>
-              Ver dashboard →
+          {podeCriar && (
+            <Link to="/documentos/novo" style={{ textDecoration: "none" }}>
+              <button type="button" className="botao-vermelho-alerta" style={estilos.botaoNovo}>
+                + Novo registo
+              </button>
             </Link>
-            {podeCriar && (
-              <Link to="/documentos/novo" style={{ textDecoration: "none" }}>
-                <button type="button" className="botao-vermelho-alerta" style={estilos.botaoNovo}>
-                  + Novo registo
-                </button>
-              </Link>
-            )}
-          </div>
+          )}
         </div>
 
         {aCarregar && <p style={estilos.mensagemEstado}>A carregar...</p>}
@@ -273,9 +283,11 @@ const estilos: Record<string, React.CSSProperties> = {
   },
   cabecalhoLista: {
     display: "flex",
-    alignItems: "baseline",
+    alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 20,
+    flexWrap: "wrap",
+    gap: 12,
   },
   titulo: {
     margin: 0,
@@ -284,9 +296,15 @@ const estilos: Record<string, React.CSSProperties> = {
     fontSize: 28,
     color: "var(--cor-primaria)",
   },
+  grupoTopoDireita: {
+    display: "flex",
+    alignItems: "center",
+    gap: 16,
+  },
   contagem: {
     fontSize: 13,
     color: "#7a735f",
+    whiteSpace: "nowrap",
   },
   barraFerramentas: {
     display: "flex",
@@ -305,7 +323,7 @@ const estilos: Record<string, React.CSSProperties> = {
     top: "50%",
     transform: "translateY(-50%)",
     color: "#9a927c",
-    fontSize: 16,
+    pointerEvents: "none",
   },
   campoPesquisa: {
     width: "100%",
@@ -327,12 +345,6 @@ const estilos: Record<string, React.CSSProperties> = {
     backgroundColor: "#ffffff",
     color: "#201e1d",
     cursor: "pointer",
-  },
-  colunaAcoesTopo: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-end",
-    gap: 6,
   },
   botaoDashboard: {
     padding: "10px 18px",
