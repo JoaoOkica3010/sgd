@@ -15,15 +15,49 @@ export function ListaDocumentos() {
   const { utilizador } = useAuth();
   const podeCriar = !!utilizador?.perfil && PERFIS_PODEM_CRIAR.includes(utilizador.perfil);
   const [documentos, setDocumentos] = useState<Documento[]>([]);
+  // Resultados de uma pesquisa alargada a todos os períodos (não só ao mês
+  // atual) — null enquanto não há pesquisa ativa, altura em que a lista usa
+  // apenas `documentos` (âmbito do mês atual).
+  const [resultadosPesquisa, setResultadosPesquisa] = useState<Documento[] | null>(null);
   const [termo, setTermo] = useState("");
   const [filtro, setFiltro] = useState<FiltroEstado>("Todos");
   const [aCarregar, setACarregar] = useState(true);
+  const [aPesquisar, setAPesquisar] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
     carregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Uma pesquisa com pelo menos 3 caracteres deixa de se limitar ao mês
+  // atual: vai buscar ao servidor todos os documentos ao alcance do
+  // utilizador, para que um documento de um mês anterior também apareça.
+  useEffect(() => {
+    const termoPesquisa = termo.trim();
+    if (termoPesquisa.length < 3) {
+      setResultadosPesquisa(null);
+      return;
+    }
+
+    let cancelado = false;
+    setAPesquisar(true);
+    const temporizador = setTimeout(async () => {
+      try {
+        const pagina = await listarDocumentos({ per_page: 500 });
+        if (!cancelado) setResultadosPesquisa(pagina.data);
+      } catch {
+        if (!cancelado) setErro("Não foi possível pesquisar os documentos.");
+      } finally {
+        if (!cancelado) setAPesquisar(false);
+      }
+    }, 300);
+
+    return () => {
+      cancelado = true;
+      clearTimeout(temporizador);
+    };
+  }, [termo]);
 
   async function carregar() {
     setACarregar(true);
@@ -40,8 +74,10 @@ export function ListaDocumentos() {
     }
   }
 
+  const aPesquisarAtivamente = termo.trim().length >= 3;
+
   const documentosFiltrados = useMemo(() => {
-    let lista = documentos;
+    let lista = resultadosPesquisa ?? documentos;
 
     if (filtro !== "Todos") {
       lista = lista.filter((doc) => ROTULOS_ESTADO[doc.estado_atual] === filtro);
@@ -58,7 +94,7 @@ export function ListaDocumentos() {
     }
 
     return lista;
-  }, [documentos, filtro, termo]);
+  }, [documentos, resultadosPesquisa, filtro, termo]);
 
   return (
     <div className="pagina-sgd">
@@ -69,7 +105,9 @@ export function ListaDocumentos() {
           <h1 style={estilos.titulo}>Documentos</h1>
           <div style={estilos.grupoTopoDireita}>
             <span style={estilos.contagem}>
-              {documentosFiltrados.length} registo{documentosFiltrados.length === 1 ? "" : "s"} · mês atual
+              {documentosFiltrados.length} registo{documentosFiltrados.length === 1 ? "" : "s"}
+              {" · "}
+              {aPesquisarAtivamente ? (aPesquisar ? "a pesquisar todos os períodos..." : "todos os períodos") : "mês atual"}
             </span>
             <Link to="/dashboard" style={estilos.botaoDashboard}>
               Ver dashboard →
