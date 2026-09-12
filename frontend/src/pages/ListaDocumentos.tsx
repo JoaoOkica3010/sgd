@@ -25,11 +25,13 @@ export function ListaDocumentos() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function carregar(q?: string) {
+  async function carregar() {
     setACarregar(true);
     setErro(null);
     try {
-      const pagina = await listarDocumentos({ q });
+      const agora = new Date();
+      const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+      const pagina = await listarDocumentos({ data_inicio: inicioMes.toISOString(), per_page: 500 });
       setDocumentos(pagina.data);
     } catch {
       setErro("Não foi possível carregar os documentos.");
@@ -39,9 +41,24 @@ export function ListaDocumentos() {
   }
 
   const documentosFiltrados = useMemo(() => {
-    if (filtro === "Todos") return documentos;
-    return documentos.filter((doc) => ROTULOS_ESTADO[doc.estado_atual] === filtro);
-  }, [documentos, filtro]);
+    let lista = documentos;
+
+    if (filtro !== "Todos") {
+      lista = lista.filter((doc) => ROTULOS_ESTADO[doc.estado_atual] === filtro);
+    }
+
+    const termoPesquisa = termo.trim().toLowerCase();
+    if (termoPesquisa.length >= 3) {
+      lista = lista.filter(
+        (doc) =>
+          doc.numero_registo.toLowerCase().includes(termoPesquisa) ||
+          doc.remetente.toLowerCase().includes(termoPesquisa) ||
+          doc.assunto.toLowerCase().includes(termoPesquisa)
+      );
+    }
+
+    return lista;
+  }, [documentos, filtro, termo]);
 
   return (
     <div className="pagina-sgd">
@@ -51,18 +68,11 @@ export function ListaDocumentos() {
         <div style={estilos.cabecalhoLista}>
           <h1 style={estilos.titulo}>Documentos</h1>
           <span style={estilos.contagem}>
-            {documentos.length} registo{documentos.length === 1 ? "" : "s"} ·{" "}
-            {filtro === "Todos" ? "a mostrar todos" : `a mostrar ${filtro}`}
+            {documentosFiltrados.length} registo{documentosFiltrados.length === 1 ? "" : "s"} · mês atual
           </span>
         </div>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            carregar(termo);
-          }}
-          style={estilos.barraFerramentas}
-        >
+        <div style={estilos.barraFerramentas}>
           <div style={estilos.campoPesquisaContentor}>
             <span style={estilos.iconePesquisa}>⌕</span>
             <input
@@ -73,21 +83,17 @@ export function ListaDocumentos() {
             />
           </div>
 
-          <div style={estilos.filtros}>
+          <select
+            value={filtro}
+            onChange={(e) => setFiltro(e.target.value as FiltroEstado)}
+            style={estilos.filtroSelect}
+          >
             {FILTROS_ESTADO.map((opcao) => (
-              <button
-                key={opcao}
-                type="button"
-                onClick={() => setFiltro(opcao)}
-                style={{
-                  ...estilos.filtroBotao,
-                  ...(filtro === opcao ? estilos.filtroBotaoAtivo : {}),
-                }}
-              >
+              <option key={opcao} value={opcao}>
                 {opcao}
-              </button>
+              </option>
             ))}
-          </div>
+          </select>
 
           <div style={estilos.colunaAcoesTopo}>
             <Link to="/dashboard" style={estilos.botaoDashboard}>
@@ -101,7 +107,7 @@ export function ListaDocumentos() {
               </Link>
             )}
           </div>
-        </form>
+        </div>
 
         {aCarregar && <p style={estilos.mensagemEstado}>A carregar...</p>}
         {erro && <p style={{ ...estilos.mensagemEstado, color: "#b3261e" }}>{erro}</p>}
@@ -312,24 +318,15 @@ const estilos: Record<string, React.CSSProperties> = {
     color: "#2b2b2b",
     outline: "none",
   },
-  filtros: {
-    display: "flex",
-    gap: 6,
-  },
-  filtroBotao: {
-    padding: "10px 16px",
-    fontSize: 13,
+  filtroSelect: {
+    padding: "12px 16px",
+    fontSize: 14,
     fontWeight: 600,
-    border: "1px solid #e6e0cf",
-    borderRadius: 8,
+    border: "1px solid #e6e2d6",
+    borderRadius: 10,
     backgroundColor: "#ffffff",
-    color: "#4a4638",
+    color: "#201e1d",
     cursor: "pointer",
-  },
-  filtroBotaoAtivo: {
-    backgroundColor: "var(--cor-primaria)",
-    borderColor: "var(--cor-primaria)",
-    color: "#ffffff",
   },
   colunaAcoesTopo: {
     display: "flex",

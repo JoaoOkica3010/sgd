@@ -39,6 +39,14 @@ class DocumentoController extends Controller
             });
         }
 
+        if ($request->filled('data_inicio')) {
+            $query->where('criado_em', '>=', $request->input('data_inicio'));
+        }
+
+        if ($request->filled('data_fim')) {
+            $query->where('criado_em', '<=', $request->input('data_fim'));
+        }
+
         $perPage = (int) $request->input('per_page', 15);
 
         return $query->orderByDesc('criado_em')->paginate($perPage);
