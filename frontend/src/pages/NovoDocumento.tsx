@@ -13,6 +13,7 @@ export function NovoDocumento() {
   const { utilizador } = useAuth();
   const podeCriar = !!utilizador?.perfil && PERFIS_PODEM_CRIAR.includes(utilizador.perfil);
   const [remetente, setRemetente] = useState("");
+  const [numeroReferencia, setNumeroReferencia] = useState("");
   const [assunto, setAssunto] = useState("");
   const [tipoDocumento, setTipoDocumento] = useState("Oficio");
   const [prioridade, setPrioridade] = useState<"Normal" | "Urgente" | "Muito Urgente">("Normal");
@@ -28,7 +29,13 @@ export function NovoDocumento() {
     setErro(null);
     setAGuardar(true);
     try {
-      const doc = await criarDocumento({ remetente, assunto, tipo_documento: tipoDocumento, prioridade });
+      const doc = await criarDocumento({
+        remetente,
+        numero_referencia: numeroReferencia || undefined,
+        assunto,
+        tipo_documento: tipoDocumento,
+        prioridade,
+      });
       navegar(`/documentos/${doc.id}`);
     } catch (erroPedido) {
       if (isAxiosError(erroPedido) && erroPedido.response?.status === 403) {
@@ -62,6 +69,15 @@ export function NovoDocumento() {
                 value={remetente}
                 onChange={(e) => setRemetente(e.target.value)}
                 required
+                style={estilos.campo}
+              />
+            </label>
+            <label style={estilos.campoBloco}>
+              <span style={estilos.rotulo}>Número/Referência</span>
+              <input
+                value={numeroReferencia}
+                onChange={(e) => setNumeroReferencia(e.target.value)}
+                maxLength={50}
                 style={estilos.campo}
               />
             </label>

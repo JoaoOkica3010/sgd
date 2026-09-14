@@ -13,6 +13,7 @@ export async function obterDocumento(id: string) {
 
 export interface NovoDocumentoInput {
   remetente: string;
+  numero_referencia?: string;
   assunto: string;
   tipo_documento: string;
   prioridade: "Normal" | "Urgente" | "Muito Urgente";

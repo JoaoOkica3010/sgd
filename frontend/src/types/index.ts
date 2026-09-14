@@ -61,6 +61,7 @@ export interface Documento {
   id: string;
   numero_registo: string;
   remetente: string;
+  numero_referencia?: string | null;
   assunto: string;
   tipo_documento: string;
   prioridade: "Normal" | "Urgente" | "Muito Urgente";

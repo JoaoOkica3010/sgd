@@ -433,6 +433,9 @@ export function DetalheDocumento() {
         <div style={estilos.cabecalho}>
           <div>
             <h1 style={estilos.numeroRegisto}>{documento.numero_registo}</h1>
+            {documento.numero_referencia && (
+              <p style={estilos.referencia}>Ref.ª {documento.numero_referencia}</p>
+            )}
             <p style={estilos.assunto}>{documento.assunto}</p>
             <p style={estilos.remetente}>{documento.remetente}</p>
           </div>
@@ -470,6 +473,12 @@ export function DetalheDocumento() {
             <section style={estilos.cartao}>
               <h2 style={estilos.tituloCartao}>Dados do documento</h2>
               <div style={estilos.grelhaDados}>
+                {documento.numero_referencia && (
+                  <div>
+                    <div style={estilos.rotuloDado}>Número/Referência</div>
+                    <div style={estilos.valorDado}>{documento.numero_referencia}</div>
+                  </div>
+                )}
                 <div>
                   <div style={estilos.rotuloDado}>Tipo</div>
                   <div style={estilos.valorDado}>{documento.tipo_documento}</div>
@@ -1382,6 +1391,12 @@ const estilos: Record<string, React.CSSProperties> = {
     fontSize: 26,
     color: "var(--cor-primaria)",
     letterSpacing: 0.5,
+  },
+  referencia: {
+    margin: "6px 0 0",
+    fontSize: 12,
+    fontWeight: 600,
+    color: "#7a735f",
   },
   assunto: {
     margin: "6px 0 2px",
