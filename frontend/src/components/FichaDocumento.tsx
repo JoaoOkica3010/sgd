@@ -121,25 +121,41 @@ export function FichaDocumento({ documento, historico, observacoes, aoImprimir }
         {historico.length === 0 ? (
           <p style={estilos.semDados}>Sem histórico disponível.</p>
         ) : (
-          <div
-            style={{
-              ...estilos.grelhaHistorico,
-              gridTemplateRows: `repeat(${Math.ceil(historico.length / 2)}, auto)`,
-            }}
-          >
-            {historico.map((h, i) => (
-              <div key={i} style={estilos.linhaTempo}>
-                <div style={estilos.marcadorCirculo} />
-                <div>
-                  <div style={estilos.itemEstado}>{ROTULOS_ESTADO[h.estado] ?? h.estado}</div>
-                  <div style={estilos.itemMeta}>
-                    {formatarData(h.alterado_em)} · {h.alterado_por?.nome ?? "—"}
-                  </div>
-                  {h.justificacao && <div style={estilos.itemJustificacao}>{h.justificacao}</div>}
-                </div>
+          (() => {
+            // Colunas preenchidas de cima para baixo (grid-auto-flow: column),
+            // com o histórico já ordenado do mais antigo para o mais recente —
+            // por isso cada coluna fica cronológica, e a 2.ª coluna continua a
+            // partir de onde a 1.ª termina.
+            const linhasPorColuna = Math.ceil(historico.length / 2);
+            return (
+              <div
+                style={{
+                  ...estilos.grelhaHistorico,
+                  gridTemplateRows: `repeat(${linhasPorColuna}, auto)`,
+                }}
+              >
+                {historico.map((h, i) => {
+                  const ultimoDaColuna = i % linhasPorColuna === linhasPorColuna - 1;
+                  const mostrarLinha = !ultimoDaColuna && i + 1 < historico.length;
+                  return (
+                    <div key={i} style={estilos.linhaTempo}>
+                      <div style={estilos.marcadorColuna}>
+                        <div style={estilos.marcadorCirculo} />
+                        {mostrarLinha && <div style={estilos.marcadorLinha} />}
+                      </div>
+                      <div style={{ paddingBottom: mostrarLinha ? 10 : 0 }}>
+                        <div style={estilos.itemEstado}>{ROTULOS_ESTADO[h.estado] ?? h.estado}</div>
+                        <div style={estilos.itemMeta}>
+                          {formatarData(h.alterado_em)} · {h.alterado_por?.nome ?? "—"}
+                        </div>
+                        {h.justificacao && <div style={estilos.itemJustificacao}>{h.justificacao}</div>}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
+            );
+          })()
         )}
       </section>
 
@@ -330,8 +346,12 @@ const estilos: Record<string, React.CSSProperties> = {
   },
   linhaTempo: {
     display: "flex",
-    alignItems: "flex-start",
     gap: 8,
+  },
+  marcadorColuna: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
   },
   marcadorCirculo: {
     width: 10,
@@ -341,6 +361,11 @@ const estilos: Record<string, React.CSSProperties> = {
     background: "#ffffff",
     flexShrink: 0,
     marginTop: 2,
+  },
+  marcadorLinha: {
+    width: 1,
+    flex: 1,
+    background: "#ddd6c4",
   },
   itemEstado: {
     fontSize: 12,
