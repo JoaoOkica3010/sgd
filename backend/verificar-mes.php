@@ -1,7 +1,11 @@
-﻿$total = App\Models\Documento::whereBetween("criado_em", [now()->startOfMonth(), now()])->count();
-echo "Total de documentos este mes (todos os estados): " . $total . PHP_EOL;
+﻿<?php
+// rodar com: php artisan tinker < backend/verificar-mes.php
+
+$query = App\Models\Documento::whereBetween("criado_em", [now()->startOfMonth(), now()]);
+
+echo "Total de documentos este mes (todos os estados): " . $query->count() . PHP_EOL;
 echo PHP_EOL . "Por estado:" . PHP_EOL;
-App\Models\Documento::whereBetween("criado_em", [now()->startOfMonth(), now()])
+$query->clone()
     ->selectRaw("estado_atual, count(*) as total")
     ->groupBy("estado_atual")
     ->get()
