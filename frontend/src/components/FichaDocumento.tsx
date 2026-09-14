@@ -79,12 +79,12 @@ export function FichaDocumento({ documento, historico, observacoes, aoImprimir }
             rotulo="Criado por"
             valor={entradaCriacao?.alterado_por?.nome ?? (documento as any).criadoPor?.nome ?? "—"}
           />
-          <Campo rotulo="Data de criação" valor={formatarData(documento.criado_em)} />
           <Campo
             rotulo="Estado atual"
             valor={ROTULOS_ESTADO[documento.estado_atual] ?? documento.estado_atual}
-            span2
+            novaLinha
           />
+          <Campo rotulo="Data de criação" valor={formatarData(documento.criado_em)} />
           {documento.observacoes && <Campo rotulo="Observações gerais" valor={documento.observacoes} span2 />}
         </div>
       </section>
@@ -100,8 +100,8 @@ export function FichaDocumento({ documento, historico, observacoes, aoImprimir }
               style={{
                 ...estilos.linhaObservacao,
                 borderBottom: i === observacoes.length - 1 ? "none" : estilos.linhaObservacao.borderBottom,
-                marginBottom: i === observacoes.length - 1 ? 0 : 12,
-                paddingBottom: i === observacoes.length - 1 ? 0 : 12,
+                marginBottom: i === observacoes.length - 1 ? 0 : 8,
+                paddingBottom: i === observacoes.length - 1 ? 0 : 8,
               }}
             >
               <div style={estilos.cabecalhoObservacao}>
@@ -121,21 +121,25 @@ export function FichaDocumento({ documento, historico, observacoes, aoImprimir }
         {historico.length === 0 ? (
           <p style={estilos.semDados}>Sem histórico disponível.</p>
         ) : (
-          historico.map((h, i) => (
-            <div key={i} style={estilos.linhaTempo}>
-              <div style={estilos.marcadorColuna}>
+          <div
+            style={{
+              ...estilos.grelhaHistorico,
+              gridTemplateRows: `repeat(${Math.ceil(historico.length / 2)}, auto)`,
+            }}
+          >
+            {historico.map((h, i) => (
+              <div key={i} style={estilos.linhaTempo}>
                 <div style={estilos.marcadorCirculo} />
-                {i < historico.length - 1 && <div style={estilos.marcadorLinha} />}
-              </div>
-              <div style={{ paddingBottom: i === historico.length - 1 ? 0 : 18 }}>
-                <div style={estilos.itemEstado}>{ROTULOS_ESTADO[h.estado] ?? h.estado}</div>
-                <div style={estilos.itemMeta}>
-                  {formatarData(h.alterado_em)} · {h.alterado_por?.nome ?? "—"}
+                <div>
+                  <div style={estilos.itemEstado}>{ROTULOS_ESTADO[h.estado] ?? h.estado}</div>
+                  <div style={estilos.itemMeta}>
+                    {formatarData(h.alterado_em)} · {h.alterado_por?.nome ?? "—"}
+                  </div>
+                  {h.justificacao && <div style={estilos.itemJustificacao}>{h.justificacao}</div>}
                 </div>
-                {h.justificacao && <div style={estilos.itemJustificacao}>{h.justificacao}</div>}
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </section>
 
@@ -166,9 +170,27 @@ function IconeImpressora() {
   );
 }
 
-function Campo({ rotulo, valor, span2 }: { rotulo: string; valor: string; span2?: boolean }) {
+function Campo({
+  rotulo,
+  valor,
+  span2,
+  novaLinha,
+}: {
+  rotulo: string;
+  valor: string;
+  span2?: boolean;
+  // Força este campo a começar sempre uma nova linha da grelha (coluna 1),
+  // independentemente de quantos campos condicionais o precederem — usado
+  // para garantir que "Estado atual" e "Data de criação" ficam sempre
+  // juntos na última linha, mesmo quando "Número/Referência" não existe.
+  novaLinha?: boolean;
+}) {
+  const estilo: React.CSSProperties = {};
+  if (span2) estilo.gridColumn = "span 2";
+  if (novaLinha) estilo.gridColumnStart = 1;
+
   return (
-    <div style={span2 ? { gridColumn: "span 2" } : undefined}>
+    <div style={Object.keys(estilo).length ? estilo : undefined}>
       <div style={estilos.rotuloDado}>{rotulo}</div>
       <div style={estilos.valorDado}>{valor}</div>
     </div>
@@ -181,12 +203,12 @@ const estilos: Record<string, React.CSSProperties> = {
     margin: "0 auto",
     fontFamily: "Arial, Helvetica, sans-serif",
     background: "#fdfcf8",
-    padding: 24,
+    padding: 16,
   },
   cabecalho: {
     borderBottom: "1px solid #e7e5e5",
-    paddingBottom: 16,
-    marginBottom: 20,
+    paddingBottom: 10,
+    marginBottom: 12,
   },
   linhaCabecalho: {
     display: "flex",
@@ -232,36 +254,36 @@ const estilos: Record<string, React.CSSProperties> = {
     background: "#ffffff",
     border: "1px solid #e7e5e5",
     borderRadius: 12,
-    padding: 24,
-    marginBottom: 16,
+    padding: 14,
+    marginBottom: 10,
   },
   cartaoAssinatura: {
     background: "#ffffff",
     border: "1px solid #e7e5e5",
     borderLeft: "3px solid #d92b1f",
     borderRadius: 12,
-    padding: 24,
+    padding: 14,
   },
   tituloSeccao: {
-    fontSize: 12,
+    fontSize: 9.5,
     fontWeight: 700,
     letterSpacing: 0.8,
     textTransform: "uppercase",
     color: "#8a8371",
-    margin: "0 0 16px",
+    margin: "0 0 8px",
   },
   grelhaDados: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
-    gap: "16px 20px",
+    gap: "8px 20px",
   },
   rotuloDado: {
-    fontSize: 12,
+    fontSize: 9.5,
     color: "#8a8371",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   valorDado: {
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: 600,
     color: "#2b2b2b",
   },
@@ -272,8 +294,8 @@ const estilos: Record<string, React.CSSProperties> = {
   },
   linhaObservacao: {
     borderBottom: "1px solid #e9e4d5",
-    paddingBottom: 12,
-    marginBottom: 12,
+    paddingBottom: 8,
+    marginBottom: 8,
   },
   cabecalhoObservacao: {
     display: "flex",
@@ -299,14 +321,17 @@ const estilos: Record<string, React.CSSProperties> = {
     fontSize: 13,
     color: "#444444",
   },
+  grelhaHistorico: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gridAutoFlow: "column",
+    rowGap: 8,
+    columnGap: 24,
+  },
   linhaTempo: {
     display: "flex",
-    gap: 12,
-  },
-  marcadorColuna: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
+    alignItems: "flex-start",
+    gap: 8,
   },
   marcadorCirculo: {
     width: 10,
@@ -315,24 +340,20 @@ const estilos: Record<string, React.CSSProperties> = {
     border: "2px solid #d92b1f",
     background: "#ffffff",
     flexShrink: 0,
-  },
-  marcadorLinha: {
-    width: 1,
-    flex: 1,
-    background: "#ddd6c4",
+    marginTop: 2,
   },
   itemEstado: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 700,
     color: "var(--cor-primaria)",
   },
   itemMeta: {
-    fontSize: 12,
+    fontSize: 9.5,
     color: "#8a8371",
     marginTop: 2,
   },
   itemJustificacao: {
-    fontSize: 12,
+    fontSize: 9.5,
     color: "#6b6350",
     marginTop: 4,
   },
