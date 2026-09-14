@@ -98,7 +98,6 @@ function apiParaObservacao(o: ObservacaoApi): Observacao {
 const estilosBarra = {
   barra: {
     maxWidth: 760,
-    margin: "0 auto",
     padding: "16px 24px 0",
   },
   link: {

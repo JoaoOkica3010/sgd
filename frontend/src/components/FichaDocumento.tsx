@@ -215,10 +215,13 @@ function Campo({
 
 const estilos: Record<string, React.CSSProperties> = {
   pagina: {
+    // Mesma largura e alinhamento (à esquerda, sem "margin: auto") dos
+    // separadores "Detalhes" (maxWidth 640) e "Observações" (maxWidth 760)
+    // em DetalheDocumento.tsx, e fundo branco em vez do creme anterior,
+    // para os quatro separadores ficarem visualmente uniformes.
     maxWidth: 760,
-    margin: "0 auto",
     fontFamily: "Arial, Helvetica, sans-serif",
-    background: "#fdfcf8",
+    background: "#ffffff",
     padding: 16,
   },
   cabecalho: {
