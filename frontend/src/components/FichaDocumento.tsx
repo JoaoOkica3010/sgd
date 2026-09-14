@@ -66,10 +66,16 @@ export function FichaDocumento({ documento, historico, observacoes, aoImprimir }
             <div style={estilos.assunto}>{documento.assunto}</div>
             <div style={estilos.remetente}>{documento.remetente}</div>
           </div>
-          <button className="no-print botao-outline-tema" onClick={imprimir} style={estilos.botaoImprimir}>
-            <IconeImpressora />
-            Imprimir
-          </button>
+          {assinatura ? (
+            <button className="no-print botao-outline-tema" onClick={imprimir} style={estilos.botaoImprimir}>
+              <IconeImpressora />
+              Imprimir
+            </button>
+          ) : (
+            <span className="no-print" style={estilos.avisoSemAssinatura}>
+              Impressão disponível após assinatura digital do Ministro.
+            </span>
+          )}
         </div>
       </div>
 
@@ -254,6 +260,13 @@ const estilos: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     borderRadius: 8,
     cursor: "pointer",
+  },
+  avisoSemAssinatura: {
+    flexShrink: 0,
+    maxWidth: 220,
+    fontSize: 12,
+    color: "#8a8371",
+    textAlign: "right",
   },
   rotuloFicha: {
     fontSize: 11,

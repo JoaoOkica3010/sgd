@@ -47,7 +47,7 @@ export function FichaDocumentoPagina() {
   }, [id]);
 
   useEffect(() => {
-    if (!aCarregar && documento && searchParams.get("imprimir") === "1") {
+    if (!aCarregar && documento?.assinatura && searchParams.get("imprimir") === "1") {
       // Pequeno atraso para garantir que o layout já pintou antes do print.
       const t = setTimeout(() => window.print(), 300);
       return () => clearTimeout(t);
