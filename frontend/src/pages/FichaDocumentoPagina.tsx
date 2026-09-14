@@ -47,7 +47,7 @@ export function FichaDocumentoPagina() {
   }, [id]);
 
   useEffect(() => {
-    if (!aCarregar && documento && searchParams.get("imprimir") === "1") {
+    if (!aCarregar && documento?.assinatura && searchParams.get("imprimir") === "1") {
       // Pequeno atraso para garantir que o layout já pintou antes do print.
       const t = setTimeout(() => window.print(), 300);
       return () => clearTimeout(t);
@@ -56,6 +56,13 @@ export function FichaDocumentoPagina() {
 
   if (aCarregar) return <p style={{ padding: 24 }}>A carregar...</p>;
   if (erro || !documento) return <p style={{ padding: 24, color: "#b3261e" }}>{erro ?? "Documento não encontrado."}</p>;
+  if (!documento.assinatura) {
+    return (
+      <p style={{ padding: 24, color: "#b3261e" }}>
+        A ficha só fica disponível depois de o documento ser assinado digitalmente pelo Ministro.
+      </p>
+    );
+  }
 
   return (
     <div>
