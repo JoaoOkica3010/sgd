@@ -38,6 +38,14 @@ export function FichaDocumento({ documento, historico, observacoes, aoImprimir }
   const assinatura = documento.assinatura;
   const entradaCriacao = historico[0];
 
+  // Mesmo sinal já usado para decidir como imprimir (ver imprimir() abaixo):
+  // sem aoImprimir estamos dentro do separador "Ficha" de DetalheDocumento.tsx,
+  // que já centra a página inteira — aí a ficha deve ficar alinhada à
+  // esquerda, com a mesma largura dos separadores "Detalhes"/"Observações".
+  // Com aoImprimir estamos na página autónoma /documentos/{id}/ficha, sem
+  // nada à volta a centrar — aí a própria ficha tem de se centrar sozinha.
+  const centrado = !!aoImprimir;
+
   function imprimir() {
     if (aoImprimir) {
       aoImprimir();
@@ -49,7 +57,7 @@ export function FichaDocumento({ documento, historico, observacoes, aoImprimir }
   }
 
   return (
-    <div className="ficha-documento" style={estilos.pagina}>
+    <div className="ficha-documento" style={{ ...estilos.pagina, margin: centrado ? "0 auto" : undefined }}>
       <div style={estilos.cabecalho}>
         <div style={estilos.linhaCabecalho}>
           <div>
@@ -215,10 +223,11 @@ function Campo({
 
 const estilos: Record<string, React.CSSProperties> = {
   pagina: {
-    // Mesma largura e alinhamento (à esquerda, sem "margin: auto") dos
-    // separadores "Detalhes" (maxWidth 640) e "Observações" (maxWidth 760)
-    // em DetalheDocumento.tsx, e fundo branco em vez do creme anterior,
-    // para os quatro separadores ficarem visualmente uniformes.
+    // Mesma largura dos separadores "Detalhes" (maxWidth 640) e
+    // "Observações" (maxWidth 760) em DetalheDocumento.tsx, e fundo branco
+    // em vez do creme anterior, para os quatro separadores ficarem
+    // visualmente uniformes. O alinhamento (centrado vs. à esquerda) é
+    // decidido à parte, em função do contexto — ver "centrado" acima.
     maxWidth: 760,
     fontFamily: "Arial, Helvetica, sans-serif",
     background: "#ffffff",
