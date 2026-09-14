@@ -12,38 +12,17 @@ class DocumentoPolicy
         return true;
     }
 
+    /**
+     * Ver o detalhe de um documento: qualquer utilizador autenticado pode
+     * consultar qualquer documento (alinhado com a listagem, que também
+     * não filtra por perfil/estado — ver DocumentoController::index()).
+     * As ações sobre o documento (submeter, validar, encaminhar, arquivar,
+     * rejeitar, etc.) continuam restritas por perfil/estado nos métodos
+     * abaixo — só a visualização deixou de ser filtrada.
+     */
     public function ver(Utilizador $utilizador, Documento $documento): bool
     {
-        if ($utilizador->possuiPerfil('ARQ')) {
-            return in_array($documento->estado_atual, [
-                Documento::ESTADO_VALIDADO_SERVICO,
-                Documento::ESTADO_ARQUIVADO,
-            ], true);
-        }
-
-        if ($utilizador->possuiPerfil('RECEP')) {
-            return in_array($documento->estado_atual, [
-                Documento::ESTADO_RECEPCAO,
-                Documento::ESTADO_SUBMETIDO,
-            ], true);
-        }
-
-        if ($utilizador->possuiPerfil('SECR', 'ADMIN', 'CONSULTA')) {
-            return true;
-        }
-
-        if ($utilizador->possuiPerfil('MIN')) {
-            return in_array($documento->estado_atual, [
-                Documento::ESTADO_VALIDADO_SECRETARIADO,
-                Documento::ESTADO_ENCAMINHADO,
-            ], true);
-        }
-
-        $servicoId = $utilizador->perfil?->servico_id;
-
-        return $servicoId !== null
-            && ($documento->servico_destino_id === $servicoId
-                || $documento->encaminhamentos()->where('servico_destino_id', $servicoId)->exists());
+        return true;
     }
 
     public function criar(Utilizador $utilizador): bool

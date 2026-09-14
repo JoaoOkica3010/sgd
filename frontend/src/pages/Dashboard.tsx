@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { listarDocumentos } from "../api/documentos";
+import { gerarRelatorio, type TipoRelatorioId } from "../api/relatorios";
 import { ROTULOS_ESTADO, type Documento } from "../types";
 import { useAuth } from "../auth/AuthContext";
 import { Cabecalho } from "../components/Cabecalho";
@@ -33,6 +34,54 @@ import { Rodape } from "../components/Rodape";
  */
 
 const ITENS_POR_PAGINA = 2;
+
+type TipoRelatorio = {
+  id: TipoRelatorioId;
+  inicial: string;
+  nome: string;
+  descricao: string;
+};
+
+// Lista de tipos de relatório — placeholder a confirmar com o produto
+// antes de ligar aos endpoints reais de geração.
+const TIPOS_RELATORIO: TipoRelatorio[] = [
+  {
+    id: "documentos-por-estado",
+    inicial: "E",
+    nome: "Documentos por Estado",
+    descricao: "Distribuição dos documentos pelos vários estados do fluxo.",
+  },
+  {
+    id: "documentos-por-servico",
+    inicial: "S",
+    nome: "Documentos por Serviço",
+    descricao: "Volume de documentos processados por cada serviço.",
+  },
+  {
+    id: "fora-de-prazo",
+    inicial: "P",
+    nome: "Fora de Prazo",
+    descricao: "Documentos que ultrapassaram o prazo definido por prioridade.",
+  },
+  {
+    id: "atividade-por-utilizador",
+    inicial: "U",
+    nome: "Atividade por Utilizador",
+    descricao: "Ações realizadas por cada utilizador num período.",
+  },
+  {
+    id: "volume-mensal",
+    inicial: "V",
+    nome: "Volume Mensal",
+    descricao: "Evolução mensal do número de documentos recebidos.",
+  },
+  {
+    id: "auditoria-acessos",
+    inicial: "A",
+    nome: "Auditoria de Acessos",
+    descricao: "Registo de acessos e consultas realizadas no sistema.",
+  },
+];
 
 // Prazo (em dias de calendário, a contar da criação) por prioridade —
 // regra de negócio combinada com o cliente. Documentos já arquivados ou
@@ -68,6 +117,7 @@ export function Dashboard() {
   const [aCarregar, setACarregar] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [pagina, setPagina] = useState(1);
+  const [aba, setAba] = useState<"dashboard" | "relatorios">("dashboard");
 
   useEffect(() => {
     carregar();
@@ -131,154 +181,232 @@ export function Dashboard() {
 
       <main style={estilos.conteudo}>
         <div style={estilos.cabecalhoLista}>
-          <h1 style={estilos.titulo}>Dashboard</h1>
-          {utilizador?.perfil === "SADMIN" ? (
-            <Link to="/admin" style={estilos.linkLista}>
-              Gestão de Sistema →
-            </Link>
-          ) : (
-            <Link to="/documentos" style={estilos.linkLista}>
-              Ver todos os documentos →
-            </Link>
-          )}
+          <h1 style={estilos.titulo}>DASHBOARD E RELATÓRIO</h1>
+          {aba === "dashboard" &&
+            (utilizador?.perfil === "SADMIN" ? (
+              <Link to="/admin" style={estilos.linkLista}>
+                Gestão de Sistema →
+              </Link>
+            ) : (
+              <Link to="/documentos" style={estilos.linkLista}>
+                Ver todos os documentos →
+              </Link>
+            ))}
+        </div>
+
+        <div style={estilos.abas}>
+          {(
+            [
+              { id: "dashboard", rotulo: "Dashboard" },
+              { id: "relatorios", rotulo: "Relatórios" },
+            ] as const
+          ).map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setAba(t.id)}
+              style={{ ...estilos.abaBotao, ...(aba === t.id ? estilos.abaBotaoAtiva : {}) }}
+            >
+              {t.rotulo}
+            </button>
+          ))}
         </div>
 
         {erro && <p style={{ ...estilos.mensagemEstado, color: "#b3261e" }}>{erro}</p>}
 
-        <div className="grelha-kpi">
-          <CartaoKpi
-            cor="despacho"
-            rotulo="Para despacho"
-            valor={contadores.paraDespacho}
-            legenda="validados pelo Secretariado"
-            aCarregar={aCarregar}
-          />
-          <CartaoKpi
-            cor="encaminhados"
-            rotulo="Encaminhados"
-            valor={contadores.encaminhados}
-            legenda="em serviços"
-            aCarregar={aCarregar}
-          />
-          <CartaoKpi
-            cor="analise"
-            rotulo="Em análise"
-            valor={contadores.emAnalise}
-            legenda="em curso"
-            aCarregar={aCarregar}
-          />
-          <CartaoKpi
-            cor="arquivo"
-            rotulo="Para arquivo"
-            valor={contadores.paraArquivo}
-            legenda="validados por serviço"
-            aCarregar={aCarregar}
-          />
-          <CartaoKpi
-            cor="rejeitados"
-            rotulo="Rejeitados"
-            valor={contadores.rejeitados}
-            legenda="no total"
-            aCarregar={aCarregar}
-          />
-        </div>
-
-        <div style={estilos.grelhaPrincipal}>
-          <section style={estilos.colunaLista}>
-            <h2 style={estilos.tituloSeccao}>A aguardar a minha ação</h2>
-
-            {aCarregar && <p style={estilos.mensagemEstado}>A carregar...</p>}
-
-            {!aCarregar && itensPagina.length === 0 && (
-              <p style={estilos.mensagemEstado}>Não tem documentos à espera de ação.</p>
-            )}
-
-            {!aCarregar &&
-              itensPagina.map((doc) => {
-                const rotuloEstado = ROTULOS_ESTADO[doc.estado_atual];
-                return (
-                  <Link key={doc.id} to={`/documentos/${doc.id}`} style={estilos.linhaLista}>
-                    <div>
-                      <div style={estilos.numeroELinha}>
-                        <span style={estilos.numeroRegisto}>{doc.numero_registo}</span>
-                      </div>
-                      <div style={estilos.assuntoLista}>{doc.assunto}</div>
-                      <div style={estilos.remetenteLista}>{doc.remetente}</div>
-                    </div>
-                    <div style={estilos.ladoDireitoLista}>
-                      <span style={{ ...estilos.badgeContorno, ...estiloContornoEstado(rotuloEstado) }}>
-                        {rotuloEstado}
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
-
-            {!aCarregar && aguardarAcao.length > 0 && (
-              <div style={estilos.paginacao}>
-                <button
-                  type="button"
-                  onClick={() => setPagina((p) => Math.max(1, p - 1))}
-                  disabled={paginaAtual === 1}
-                  style={estilos.botaoPaginacao}
-                >
-                  ‹
-                </button>
-                <span style={estilos.textoPaginacao}>
-                  {paginaAtual}/{totalPaginas}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-                  disabled={paginaAtual === totalPaginas}
-                  style={estilos.botaoPaginacao}
-                >
-                  ›
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPagina(1)}
-                  style={estilos.botaoReset}
-                  title="Repor paginação"
-                >
-                  Reset <span style={estilos.letraReset}>R</span>
-                </button>
-              </div>
-            )}
-          </section>
-
-          <section style={estilos.colunaAtividade}>
-            <h2 style={estilos.tituloSeccao}>Atividade</h2>
-            {/* TODO: substituir por um feed real quando existir um endpoint
-                de auditoria (ex.: listarAtividadeRecente()). */}
-            <div style={estilos.estadoVazioAtividade}>
-              Ainda não há uma fonte de atividade recente ligada a este painel.
+        {aba === "dashboard" && (
+          <>
+            <div className="grelha-kpi">
+              <CartaoKpi
+                cor="despacho"
+                rotulo="Para despacho"
+                valor={contadores.paraDespacho}
+                legenda="validados pelo Secretariado"
+                aCarregar={aCarregar}
+              />
+              <CartaoKpi
+                cor="encaminhados"
+                rotulo="Encaminhados"
+                valor={contadores.encaminhados}
+                legenda="em serviços"
+                aCarregar={aCarregar}
+              />
+              <CartaoKpi
+                cor="analise"
+                rotulo="Em análise"
+                valor={contadores.emAnalise}
+                legenda="em curso"
+                aCarregar={aCarregar}
+              />
+              <CartaoKpi
+                cor="arquivo"
+                rotulo="Para arquivo"
+                valor={contadores.paraArquivo}
+                legenda="validados por serviço"
+                aCarregar={aCarregar}
+              />
+              <CartaoKpi
+                cor="rejeitados"
+                rotulo="Rejeitados"
+                valor={contadores.rejeitados}
+                legenda="no total"
+                aCarregar={aCarregar}
+              />
             </div>
 
-            <div
-              style={{
-                ...estilos.cartaoForaPrazo,
-                backgroundColor: foraPrazo.length > 0 ? "#c94f2f" : "#f5f2e9",
-                color: foraPrazo.length > 0 ? "#ffffff" : "#6b6350",
-              }}
-            >
-              <div style={estilos.rotuloForaPrazo}>Fora de prazo</div>
-              <div style={estilos.valorForaPrazo}>
-                {String(foraPrazo.length).padStart(2, "0")}
-              </div>
-              {foraPrazo.length === 0 ? (
-                <div style={estilos.legendaForaPrazo}>Nenhum documento fora do prazo.</div>
-              ) : (
-                <div style={estilos.legendaForaPrazo}>
-                  O mais atrasado ({foraPrazo[0].numero_registo}) está {diasEmAtraso(foraPrazo[0])}{" "}
-                  {diasEmAtraso(foraPrazo[0]) === 1 ? "dia" : "dias"} além do prazo.
+            <div style={estilos.grelhaPrincipal}>
+              <section style={estilos.colunaLista}>
+                <h2 style={estilos.tituloSeccao}>A aguardar a minha ação</h2>
+
+                {aCarregar && <p style={estilos.mensagemEstado}>A carregar...</p>}
+
+                {!aCarregar && itensPagina.length === 0 && (
+                  <p style={estilos.mensagemEstado}>Não tem documentos à espera de ação.</p>
+                )}
+
+                {!aCarregar &&
+                  itensPagina.map((doc) => {
+                    const rotuloEstado = ROTULOS_ESTADO[doc.estado_atual];
+                    return (
+                      <Link key={doc.id} to={`/documentos/${doc.id}`} style={estilos.linhaLista}>
+                        <div>
+                          <div style={estilos.numeroELinha}>
+                            <span style={estilos.numeroRegisto}>{doc.numero_registo}</span>
+                          </div>
+                          <div style={estilos.assuntoLista}>{doc.assunto}</div>
+                          <div style={estilos.remetenteLista}>{doc.remetente}</div>
+                        </div>
+                        <div style={estilos.ladoDireitoLista}>
+                          <span style={{ ...estilos.badgeContorno, ...estiloContornoEstado(rotuloEstado) }}>
+                            {rotuloEstado}
+                          </span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+
+                {!aCarregar && aguardarAcao.length > 0 && (
+                  <div style={estilos.paginacao}>
+                    <button
+                      type="button"
+                      onClick={() => setPagina((p) => Math.max(1, p - 1))}
+                      disabled={paginaAtual === 1}
+                      style={estilos.botaoPaginacao}
+                    >
+                      ‹
+                    </button>
+                    <span style={estilos.textoPaginacao}>
+                      {paginaAtual}/{totalPaginas}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+                      disabled={paginaAtual === totalPaginas}
+                      style={estilos.botaoPaginacao}
+                    >
+                      ›
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPagina(1)}
+                      style={estilos.botaoReset}
+                      title="Repor paginação"
+                    >
+                      Reset <span style={estilos.letraReset}>R</span>
+                    </button>
+                  </div>
+                )}
+              </section>
+
+              <section style={estilos.colunaAtividade}>
+                <h2 style={estilos.tituloSeccao}>Atividade</h2>
+                {/* TODO: substituir por um feed real quando existir um endpoint
+                    de auditoria (ex.: listarAtividadeRecente()). */}
+                <div style={estilos.estadoVazioAtividade}>
+                  Ainda não há uma fonte de atividade recente ligada a este painel.
                 </div>
-              )}
+
+                <div
+                  style={{
+                    ...estilos.cartaoForaPrazo,
+                    backgroundColor: foraPrazo.length > 0 ? "#c94f2f" : "#f5f2e9",
+                    color: foraPrazo.length > 0 ? "#ffffff" : "#6b6350",
+                  }}
+                >
+                  <div style={estilos.rotuloForaPrazo}>Fora de prazo</div>
+                  <div style={estilos.valorForaPrazo}>
+                    {String(foraPrazo.length).padStart(2, "0")}
+                  </div>
+                  {foraPrazo.length === 0 ? (
+                    <div style={estilos.legendaForaPrazo}>Nenhum documento fora do prazo.</div>
+                  ) : (
+                    <div style={estilos.legendaForaPrazo}>
+                      O mais atrasado ({foraPrazo[0].numero_registo}) está {diasEmAtraso(foraPrazo[0])}{" "}
+                      {diasEmAtraso(foraPrazo[0]) === 1 ? "dia" : "dias"} além do prazo.
+                    </div>
+                  )}
+                </div>
+              </section>
             </div>
-          </section>
-        </div>
+          </>
+        )}
+
+        {aba === "relatorios" && <PainelRelatorios />}
       </main>
       <Rodape />
+    </div>
+  );
+}
+
+function PainelRelatorios() {
+  const [aGerar, setAGerar] = useState<TipoRelatorioId | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+
+  async function handleGerarRelatorio(tipo: TipoRelatorio) {
+    setErro(null);
+    setAGerar(tipo.id);
+    try {
+      await gerarRelatorio(tipo.id);
+    } catch (e) {
+      const status = (e as { response?: { status?: number } })?.response?.status;
+      setErro(
+        status === 403
+          ? `Não tem permissão para gerar "${tipo.nome}".`
+          : `Não foi possível gerar "${tipo.nome}". Tente novamente.`
+      );
+    } finally {
+      setAGerar(null);
+    }
+  }
+
+  return (
+    <div>
+      <p style={estilos.introRelatorios}>
+        Selecione um tipo de relatório para gerar. Os relatórios são compilados a partir dos
+        dados atuais do SGD.
+      </p>
+
+      {erro && <p style={{ ...estilos.mensagemEstado, color: "#b3261e" }}>{erro}</p>}
+
+      <div style={estilos.grelhaRelatorios}>
+        {TIPOS_RELATORIO.map((tipo) => (
+          <div key={tipo.id} style={estilos.cartaoRelatorio}>
+            <div style={estilos.iconeRelatorio}>{tipo.inicial}</div>
+            <div style={estilos.nomeRelatorio}>{tipo.nome}</div>
+            <div style={estilos.descricaoRelatorio}>{tipo.descricao}</div>
+            <button
+              type="button"
+              style={{
+                ...estilos.botaoGerarRelatorio,
+                ...(aGerar === tipo.id ? estilos.botaoGerarRelatorioDesativado : {}),
+              }}
+              disabled={aGerar === tipo.id}
+              onClick={() => handleGerarRelatorio(tipo)}
+            >
+              {aGerar === tipo.id ? "A gerar..." : "Gerar relatório"}
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -445,6 +573,85 @@ const estilos: Record<string, React.CSSProperties> = {
   mensagemEstado: {
     color: "#6b6350",
     fontSize: 14,
+  },
+  abas: {
+    display: "flex",
+    gap: 32,
+    borderBottom: "1px solid #e7e5e5",
+    marginBottom: 24,
+  },
+  abaBotao: {
+    padding: "0 0 12px",
+    fontSize: 16,
+    fontWeight: 700,
+    cursor: "pointer",
+    background: "none",
+    border: "none",
+    borderBottom: "2px solid transparent",
+    color: "#201e1d",
+    fontFamily: "Arial, Helvetica, sans-serif",
+  },
+  abaBotaoAtiva: {
+    borderBottom: "2px solid #d92b1f",
+    color: "#d92b1f",
+    marginBottom: -1,
+  },
+  introRelatorios: {
+    fontSize: 15,
+    color: "#5a564d",
+    margin: "0 0 20px",
+  },
+  grelhaRelatorios: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+    gap: 16,
+  },
+  cartaoRelatorio: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    backgroundColor: "#ffffff",
+    border: "1px solid #e6e2d6",
+    borderRadius: 14,
+    padding: 22,
+  },
+  iconeRelatorio: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: "#eaf3ee",
+    color: "var(--cor-primaria)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontFamily: "Georgia, 'Times New Roman', serif",
+    fontWeight: 700,
+    fontSize: 16,
+  },
+  nomeRelatorio: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: "#201e1d",
+  },
+  descricaoRelatorio: {
+    fontSize: 13,
+    color: "#8a857a",
+    flexGrow: 1,
+  },
+  botaoGerarRelatorio: {
+    alignSelf: "flex-start",
+    padding: "9px 16px",
+    fontSize: 13,
+    fontWeight: 700,
+    border: "none",
+    borderRadius: 8,
+    backgroundColor: "var(--cor-primaria)",
+    color: "#ffffff",
+    cursor: "pointer",
+  },
+  botaoGerarRelatorioDesativado: {
+    opacity: 0.6,
+    cursor: "not-allowed",
   },
   grelhaPrincipal: {
     display: "grid",

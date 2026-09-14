@@ -15,9 +15,14 @@ export function ListaDocumentos() {
   const { utilizador } = useAuth();
   const podeCriar = !!utilizador?.perfil && PERFIS_PODEM_CRIAR.includes(utilizador.perfil);
   const [documentos, setDocumentos] = useState<Documento[]>([]);
+  // Resultados de uma pesquisa alargada a todos os períodos (não só ao mês
+  // atual) — null enquanto não há pesquisa ativa, altura em que a lista usa
+  // apenas `documentos` (âmbito do mês atual).
+  const [resultadosPesquisa, setResultadosPesquisa] = useState<Documento[] | null>(null);
   const [termo, setTermo] = useState("");
   const [filtro, setFiltro] = useState<FiltroEstado>("Todos");
   const [aCarregar, setACarregar] = useState(true);
+  const [aPesquisar, setAPesquisar] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
@@ -25,11 +30,42 @@ export function ListaDocumentos() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function carregar(q?: string) {
+  // Uma pesquisa com pelo menos 3 caracteres deixa de se limitar ao mês
+  // atual: vai buscar ao servidor todos os documentos ao alcance do
+  // utilizador, para que um documento de um mês anterior também apareça.
+  useEffect(() => {
+    const termoPesquisa = termo.trim();
+    if (termoPesquisa.length < 3) {
+      setResultadosPesquisa(null);
+      return;
+    }
+
+    let cancelado = false;
+    setAPesquisar(true);
+    const temporizador = setTimeout(async () => {
+      try {
+        const pagina = await listarDocumentos({ per_page: 500 });
+        if (!cancelado) setResultadosPesquisa(pagina.data);
+      } catch {
+        if (!cancelado) setErro("Não foi possível pesquisar os documentos.");
+      } finally {
+        if (!cancelado) setAPesquisar(false);
+      }
+    }, 300);
+
+    return () => {
+      cancelado = true;
+      clearTimeout(temporizador);
+    };
+  }, [termo]);
+
+  async function carregar() {
     setACarregar(true);
     setErro(null);
     try {
-      const pagina = await listarDocumentos({ q });
+      const agora = new Date();
+      const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+      const pagina = await listarDocumentos({ data_inicio: inicioMes.toISOString(), per_page: 500 });
       setDocumentos(pagina.data);
     } catch {
       setErro("Não foi possível carregar os documentos.");
@@ -38,10 +74,27 @@ export function ListaDocumentos() {
     }
   }
 
+  const aPesquisarAtivamente = termo.trim().length >= 3;
+
   const documentosFiltrados = useMemo(() => {
-    if (filtro === "Todos") return documentos;
-    return documentos.filter((doc) => ROTULOS_ESTADO[doc.estado_atual] === filtro);
-  }, [documentos, filtro]);
+    let lista = resultadosPesquisa ?? documentos;
+
+    if (filtro !== "Todos") {
+      lista = lista.filter((doc) => ROTULOS_ESTADO[doc.estado_atual] === filtro);
+    }
+
+    const termoPesquisa = termo.trim().toLowerCase();
+    if (termoPesquisa.length >= 3) {
+      lista = lista.filter(
+        (doc) =>
+          doc.numero_registo.toLowerCase().includes(termoPesquisa) ||
+          doc.remetente.toLowerCase().includes(termoPesquisa) ||
+          doc.assunto.toLowerCase().includes(termoPesquisa)
+      );
+    }
+
+    return lista;
+  }, [documentos, resultadosPesquisa, filtro, termo]);
 
   return (
     <div className="pagina-sgd">
@@ -50,21 +103,31 @@ export function ListaDocumentos() {
       <main style={estilos.conteudo}>
         <div style={estilos.cabecalhoLista}>
           <h1 style={estilos.titulo}>Documentos</h1>
-          <span style={estilos.contagem}>
-            {documentos.length} registo{documentos.length === 1 ? "" : "s"} ·{" "}
-            {filtro === "Todos" ? "a mostrar todos" : `a mostrar ${filtro}`}
-          </span>
+          <div style={estilos.grupoTopoDireita}>
+            <span style={estilos.contagem}>
+              {documentosFiltrados.length} registo{documentosFiltrados.length === 1 ? "" : "s"}
+              {" · "}
+              {aPesquisarAtivamente ? (aPesquisar ? "a pesquisar todos os períodos..." : "todos os períodos") : "mês atual"}
+            </span>
+            <Link to="/dashboard" style={estilos.botaoDashboard}>
+              Ver dashboard →
+            </Link>
+          </div>
         </div>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            carregar(termo);
-          }}
-          style={estilos.barraFerramentas}
-        >
+        <div style={estilos.barraFerramentas}>
           <div style={estilos.campoPesquisaContentor}>
-            <span style={estilos.iconePesquisa}>⌕</span>
+            <svg
+              style={estilos.iconePesquisa}
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              aria-hidden="true"
+            >
+              <circle cx="7" cy="7" r="5.25" stroke="currentColor" strokeWidth="1.5" />
+              <line x1="11.2" y1="11.2" x2="14.5" y2="14.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
             <input
               placeholder="Pesquisar por número, remetente ou assunto..."
               value={termo}
@@ -73,35 +136,26 @@ export function ListaDocumentos() {
             />
           </div>
 
-          <div style={estilos.filtros}>
+          <select
+            value={filtro}
+            onChange={(e) => setFiltro(e.target.value as FiltroEstado)}
+            style={estilos.filtroSelect}
+          >
             {FILTROS_ESTADO.map((opcao) => (
-              <button
-                key={opcao}
-                type="button"
-                onClick={() => setFiltro(opcao)}
-                style={{
-                  ...estilos.filtroBotao,
-                  ...(filtro === opcao ? estilos.filtroBotaoAtivo : {}),
-                }}
-              >
+              <option key={opcao} value={opcao}>
                 {opcao}
-              </button>
+              </option>
             ))}
-          </div>
+          </select>
 
-          <div style={estilos.colunaAcoesTopo}>
-            <Link to="/dashboard" style={estilos.botaoDashboard}>
-              Ver dashboard →
+          {podeCriar && (
+            <Link to="/documentos/novo" style={{ textDecoration: "none" }}>
+              <button type="button" className="botao-vermelho-alerta" style={estilos.botaoNovo}>
+                + Novo registo
+              </button>
             </Link>
-            {podeCriar && (
-              <Link to="/documentos/novo" style={{ textDecoration: "none" }}>
-                <button type="button" className="botao-vermelho-alerta" style={estilos.botaoNovo}>
-                  + Novo registo
-                </button>
-              </Link>
-            )}
-          </div>
-        </form>
+          )}
+        </div>
 
         {aCarregar && <p style={estilos.mensagemEstado}>A carregar...</p>}
         {erro && <p style={{ ...estilos.mensagemEstado, color: "#b3261e" }}>{erro}</p>}
@@ -267,9 +321,11 @@ const estilos: Record<string, React.CSSProperties> = {
   },
   cabecalhoLista: {
     display: "flex",
-    alignItems: "baseline",
+    alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 20,
+    flexWrap: "wrap",
+    gap: 12,
   },
   titulo: {
     margin: 0,
@@ -278,9 +334,15 @@ const estilos: Record<string, React.CSSProperties> = {
     fontSize: 28,
     color: "var(--cor-primaria)",
   },
+  grupoTopoDireita: {
+    display: "flex",
+    alignItems: "center",
+    gap: 16,
+  },
   contagem: {
     fontSize: 13,
     color: "#7a735f",
+    whiteSpace: "nowrap",
   },
   barraFerramentas: {
     display: "flex",
@@ -299,7 +361,7 @@ const estilos: Record<string, React.CSSProperties> = {
     top: "50%",
     transform: "translateY(-50%)",
     color: "#9a927c",
-    fontSize: 16,
+    pointerEvents: "none",
   },
   campoPesquisa: {
     width: "100%",
@@ -312,30 +374,15 @@ const estilos: Record<string, React.CSSProperties> = {
     color: "#2b2b2b",
     outline: "none",
   },
-  filtros: {
-    display: "flex",
-    gap: 6,
-  },
-  filtroBotao: {
-    padding: "10px 16px",
-    fontSize: 13,
+  filtroSelect: {
+    padding: "12px 16px",
+    fontSize: 14,
     fontWeight: 600,
-    border: "1px solid #e6e0cf",
-    borderRadius: 8,
+    border: "1px solid #e6e2d6",
+    borderRadius: 10,
     backgroundColor: "#ffffff",
-    color: "#4a4638",
+    color: "#201e1d",
     cursor: "pointer",
-  },
-  filtroBotaoAtivo: {
-    backgroundColor: "var(--cor-primaria)",
-    borderColor: "var(--cor-primaria)",
-    color: "#ffffff",
-  },
-  colunaAcoesTopo: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-end",
-    gap: 6,
   },
   botaoDashboard: {
     padding: "10px 18px",

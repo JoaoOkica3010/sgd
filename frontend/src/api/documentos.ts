@@ -1,7 +1,14 @@
 import { apiClient } from "./client";
 import type { Documento, EstadoHistorico, PaginaDocumentos } from "../types";
 
-export async function listarDocumentos(params: { q?: string; estado?: string; page?: number }) {
+export async function listarDocumentos(params: {
+  q?: string;
+  estado?: string;
+  page?: number;
+  per_page?: number;
+  data_inicio?: string;
+  data_fim?: string;
+}) {
   const { data } = await apiClient.get<PaginaDocumentos>("/documentos", { params });
   return data;
 }
