@@ -19,24 +19,14 @@ class DocumentoController extends Controller
     {
         Gate::authorize('verQualquer', Documento::class);
 
-        $utilizador = $request->user();
         $query = Documento::query()->with(['servicoDestino', 'criadoPor']);
 
-        if ($utilizador->possuiPerfil('RECEP')) {
-            $query->whereIn('estado_atual', [
-                Documento::ESTADO_RECEPCAO,
-                Documento::ESTADO_SUBMETIDO,
-            ]);
-        } elseif ($utilizador->possuiPerfil('ARQ')) {
-            $query->whereIn('estado_atual', [Documento::ESTADO_VALIDADO_SERVICO, Documento::ESTADO_ARQUIVADO]);
-        } elseif ($utilizador->possuiPerfil('MIN')) {
-            $query->whereIn('estado_atual', [Documento::ESTADO_VALIDADO_SECRETARIADO, Documento::ESTADO_ENCAMINHADO]);
-        } elseif (! $utilizador->possuiPerfil('SECR', 'ADMIN', 'CONSULTA')) {
-            $servicoId = $utilizador->perfil?->servico_id;
-            $query->where(function ($q) use ($servicoId) {
-                $q->where('servico_destino_id', $servicoId)
-                    ->orWhereHas('encaminhamentos', fn ($e) => $e->where('servico_destino_id', $servicoId));
-            });
+        if ($request->filled('data_inicio')) {
+            $query->where('criado_em', '>=', $request->input('data_inicio'));
+        }
+
+        if ($request->filled('data_fim')) {
+            $query->where('criado_em', '<=', $request->input('data_fim'));
         }
 
         $perPage = (int) $request->input('per_page', 15);

@@ -10,6 +10,7 @@ export function Login() {
   const navegar = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [mostrarPassword, setMostrarPassword] = useState(false);
   const [manterSessao, setManterSessao] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [aCarregar, setACarregar] = useState(false);
@@ -77,13 +78,45 @@ export function Login() {
 
               <label style={estilos.campoBloco}>
                 <span style={estilos.rotulo}>Palavra-passe</span>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  style={estilos.campo}
-                />
+                <div style={estilos.campoSenhaContentor}>
+                  <input
+                    type={mostrarPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    style={estilos.campoSenha}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setMostrarPassword((v) => !v)}
+                    style={estilos.botaoMostrarSenha}
+                    aria-label={mostrarPassword ? "Ocultar palavra-passe" : "Mostrar palavra-passe"}
+                    aria-pressed={mostrarPassword}
+                    title={mostrarPassword ? "Ocultar palavra-passe" : "Mostrar palavra-passe"}
+                  >
+                    {mostrarPassword ? (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path
+                          d="M3 3l18 18M10.6 10.6a2.5 2.5 0 003.5 3.5M6.5 6.7C4.3 8.1 2.7 10 2 12c1.5 4 5.5 7 10 7 1.6 0 3.1-.4 4.5-1.1M9.9 4.2A10.4 10.4 0 0112 4c4.5 0 8.5 3 10 7-.5 1.3-1.2 2.5-2.2 3.6"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path
+                          d="M2 12c1.5-4 5.5-7 10-7s8.5 3 10 7c-1.5 4-5.5 7-10 7s-8.5-3-10-7z"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinejoin="round"
+                        />
+                        <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.6" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </label>
 
               <div style={estilos.linhaOpcoes}>
@@ -271,6 +304,39 @@ const estilos: Record<string, React.CSSProperties> = {
     backgroundColor: "#eae7e7",
     color: "#2b2b2b",
     outline: "none",
+  },
+  campoSenhaContentor: {
+    position: "relative",
+    display: "flex",
+  },
+  campoSenha: {
+    width: "100%",
+    boxSizing: "border-box",
+    minHeight: 40,
+    padding: "8px 42px 8px 12px",
+    fontSize: 14,
+    fontFamily: "'Inter', sans-serif",
+    border: "1px solid #ddd6c4",
+    borderRadius: 0,
+    backgroundColor: "#eae7e7",
+    color: "#2b2b2b",
+    outline: "none",
+  },
+  botaoMostrarSenha: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 40,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "none",
+    border: "none",
+    padding: 0,
+    margin: 0,
+    color: "#7a7364",
+    cursor: "pointer",
   },
   linhaOpcoes: {
     display: "flex",
