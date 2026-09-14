@@ -56,6 +56,13 @@ export function FichaDocumentoPagina() {
 
   if (aCarregar) return <p style={{ padding: 24 }}>A carregar...</p>;
   if (erro || !documento) return <p style={{ padding: 24, color: "#b3261e" }}>{erro ?? "Documento não encontrado."}</p>;
+  if (!documento.assinatura) {
+    return (
+      <p style={{ padding: 24, color: "#b3261e" }}>
+        A ficha só fica disponível depois de o documento ser assinado digitalmente pelo Ministro.
+      </p>
+    );
+  }
 
   return (
     <div>

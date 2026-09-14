@@ -455,7 +455,9 @@ export function DetalheDocumento() {
               { id: "detalhes", rotulo: "Detalhes" },
               { id: "observacoes", rotulo: "Observações" },
               { id: "historico", rotulo: "Histórico e Anexos" },
-              { id: "ficha", rotulo: "Ficha" },
+              // A ficha só existe como registo formal e imprimível depois de
+              // assinada digitalmente pelo MIN — antes disso a aba nem aparece.
+              ...(documento.assinatura ? [{ id: "ficha", rotulo: "Ficha" } as const] : []),
             ] as const
           ).map((t) => (
             <button
@@ -831,7 +833,7 @@ export function DetalheDocumento() {
             </section>
           </div>
         )}
-        {aba === "ficha" && (
+        {aba === "ficha" && documento.assinatura && (
           <FichaDocumento documento={documento} historico={historico} observacoes={observacoes} />
         )}
       </div>
