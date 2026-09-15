@@ -426,7 +426,7 @@ function CartaoKpi({
   legenda,
   aCarregar,
 }: {
-  cor: "despacho" | "encaminhados" | "analise" | "arquivo" | "rejeitados";
+  cor: "apreciacao-cg" | "despacho" | "encaminhados" | "analise" | "arquivo" | "rejeitados";
   rotulo: string;
   valor: number;
   legenda: string;
