@@ -185,6 +185,18 @@ class WorkflowService
             'justificacao' => null,
             'alterado_em' => now(),
         ]);
+
+        // Única ação do ciclo de vida do documento que ainda não passava
+        // por transitar()/reabrir() (que já registam auditoria) — sem isto,
+        // a criação de um documento não deixava nenhum rasto em "auditoria",
+        // apesar de ser a primeira e mais visível ação do fluxo.
+        Auditoria::create([
+            'utilizador_id' => $utilizador->id,
+            'acao' => 'criar_documento',
+            'entidade_afetada' => 'documentos',
+            'entidade_id' => $documento->id,
+            'ocorrido_em' => now(),
+        ]);
     }
 
     /**
