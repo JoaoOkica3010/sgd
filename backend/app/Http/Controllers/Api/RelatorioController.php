@@ -34,6 +34,7 @@ class RelatorioController extends Controller
         Documento::ESTADO_RECEPCAO => 'Receção',
         Documento::ESTADO_SUBMETIDO => 'Submetido',
         Documento::ESTADO_VALIDADO_SECRETARIADO => 'Validado (Secretariado)',
+        Documento::ESTADO_VALIDADO_CG => 'Validado (Chefe de Gabinete)',
         Documento::ESTADO_ENCAMINHADO => 'Encaminhado',
         Documento::ESTADO_EM_ANALISE => 'Em análise',
         Documento::ESTADO_VALIDADO_SERVICO => 'Validado (serviço)',

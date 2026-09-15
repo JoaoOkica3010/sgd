@@ -42,6 +42,21 @@ export async function validarDocumento(id: string) {
   return data;
 }
 
+export async function devolverRececaoDocumento(id: string, motivo?: string) {
+  const { data } = await apiClient.post<Documento>(`/documentos/${id}/devolver-recepcao`, { motivo });
+  return data;
+}
+
+export async function validarChefeGabineteDocumento(id: string) {
+  const { data } = await apiClient.post<Documento>(`/documentos/${id}/validar-chefe-gabinete`);
+  return data;
+}
+
+export async function devolverSecrDocumento(id: string, motivo?: string) {
+  const { data } = await apiClient.post<Documento>(`/documentos/${id}/devolver-secr`, { motivo });
+  return data;
+}
+
 export async function encaminharDocumento(id: string, servicoDestinoIds: number[], comentario?: string) {
   const { data } = await apiClient.post<Documento>(`/documentos/${id}/encaminhar`, {
     servico_destino_ids: servicoDestinoIds,

@@ -43,13 +43,14 @@ export interface PaginaGenerica<T> {
 }
 
 export type EstadoDocumento =
-  | "recepcao" | "submetido" | "validado_secretariado" | "encaminhado"
-  | "em_analise" | "validado_servico" | "arquivado" | "rejeitado";
+  | "recepcao" | "submetido" | "validado_secretariado" | "validado_chefe_gabinete"
+  | "encaminhado" | "em_analise" | "validado_servico" | "arquivado" | "rejeitado";
 
 export const ROTULOS_ESTADO: Record<EstadoDocumento, string> = {
   recepcao: "Receção",
   submetido: "Submetido",
   validado_secretariado: "Validado (Secretariado)",
+  validado_chefe_gabinete: "Validado (Chefe de Gabinete)",
   encaminhado: "Encaminhado",
   em_analise: "Em análise",
   validado_servico: "Validado (serviço)",

@@ -20,6 +20,7 @@ class Documento extends Model
     public const ESTADO_RECEPCAO = 'recepcao';
     public const ESTADO_SUBMETIDO = 'submetido';
     public const ESTADO_VALIDADO_SECRETARIADO = 'validado_secretariado';
+    public const ESTADO_VALIDADO_CG = 'validado_chefe_gabinete';
     public const ESTADO_ENCAMINHADO = 'encaminhado';
     public const ESTADO_EM_ANALISE = 'em_analise';
     public const ESTADO_VALIDADO_SERVICO = 'validado_servico';
@@ -28,6 +29,7 @@ class Documento extends Model
 
     public const ESTADOS = [
         self::ESTADO_RECEPCAO, self::ESTADO_SUBMETIDO, self::ESTADO_VALIDADO_SECRETARIADO,
+        self::ESTADO_VALIDADO_CG,
         self::ESTADO_ENCAMINHADO, self::ESTADO_EM_ANALISE, self::ESTADO_VALIDADO_SERVICO,
         self::ESTADO_ARQUIVADO, self::ESTADO_REJEITADO,
     ];

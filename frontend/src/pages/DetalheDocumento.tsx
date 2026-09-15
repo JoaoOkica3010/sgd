@@ -5,6 +5,7 @@ import {
   arquivarDocumento, desarquivarDocumento, encaminharDocumento, iniciarAnaliseDocumento, obterDocumento,
   obterHistoricoDocumento, reabrirDocumento, rejeitarDocumento, submeterDocumento, validarDocumento,
   validarServicoDocumento, assinarDocumento as assinarDocumentoApi,
+  devolverRececaoDocumento, validarChefeGabineteDocumento, devolverSecrDocumento,
 } from "../api/documentos";
 import { baixarAnexo, carregarAnexo, obterAnexoBlob, obterPreviewPdfAnexo, atualizarAnexo } from "../api/anexos";
 import {
@@ -40,6 +41,8 @@ export function DetalheDocumento() {
   const [servicosEscolhidos, setServicosEscolhidos] = useState<number[]>([]);
   const [justificacaoRejeicao, setJustificacaoRejeicao] = useState("");
   const [mostrarRejeicao, setMostrarRejeicao] = useState(false);
+  const [motivoDevolucao, setMotivoDevolucao] = useState("");
+  const [mostrarDevolucao, setMostrarDevolucao] = useState(false);
 
   const [modalReaberturaAberto, setModalReaberturaAberto] = useState(false);
   const [motivoReabertura, setMotivoReabertura] = useState("");
@@ -220,7 +223,12 @@ export function DetalheDocumento() {
   const perfil = utilizador?.perfil;
   const podeSubmeter = documento.estado_atual === "recepcao" && (perfil === "RECEP" || perfil === "SECR");
   const podeValidarSecretariado = documento.estado_atual === "submetido" && perfil === "SECR";
-  const podeEncaminhar = documento.estado_atual === "validado_secretariado" && perfil === "MIN";
+  // DEVOLVER (SECR -> Receção): correção simples, sem justificação obrigatória.
+  const podeDevolverRececao = documento.estado_atual === "submetido" && perfil === "SECR";
+  // Novo estado: apreciação do Chefe de Gabinete, entre a SECR e o MIN.
+  const podeValidarChefeGabinete = documento.estado_atual === "validado_secretariado" && perfil === "CG";
+  const podeDevolverSecr = documento.estado_atual === "validado_secretariado" && perfil === "CG";
+  const podeEncaminhar = documento.estado_atual === "validado_chefe_gabinete" && perfil === "MIN";
   const podeIniciarAnalise = documento.estado_atual === "encaminhado" && perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ" && perfil !== "CONSULTA";
   const podeValidarServico = documento.estado_atual === "em_analise" && perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ" && perfil !== "CONSULTA";
   const podeArquivar = documento.estado_atual === "validado_servico" && perfil === "ARQ";
@@ -238,9 +246,11 @@ export function DetalheDocumento() {
       ["encaminhado", "em_analise"].includes(documento.estado_atual)) ||
     (perfil === "ADMIN" && !documentoTerminal);
 
-  const podeAssinar = perfil === "MIN" && documento.estado_atual === "validado_secretariado" && !documento.assinatura;
+  const podeAssinar = perfil === "MIN" && documento.estado_atual === "validado_chefe_gabinete" && !documento.assinatura;
 
-  const temAcoes = podeSubmeter || podeValidarSecretariado || podeEncaminhar || podeIniciarAnalise ||
+  const temAcoes = podeSubmeter || podeValidarSecretariado || podeDevolverRececao ||
+    podeValidarChefeGabinete || podeDevolverSecr ||
+    podeEncaminhar || podeIniciarAnalise ||
     podeValidarServico || podeArquivar || podeDesarquivar || podeRejeitar || podeAssinar;
 
   async function assinarDocumento() {
@@ -556,7 +566,7 @@ export function DetalheDocumento() {
                       onClick={() => id && executarAcao(() => submeterDocumento(id))}
                       className="botao-vermelho-alerta" style={estilos.botaoPrimario}
                     >
-                      Submeter para validação
+                      SUBMETER
                     </button>
                   )}
                   {podeValidarSecretariado && (
@@ -565,7 +575,34 @@ export function DetalheDocumento() {
                       onClick={() => id && executarAcao(() => validarDocumento(id))}
                       className="botao-vermelho-alerta" style={estilos.botaoPrimario}
                     >
-                      Validar
+                      VALIDAR
+                    </button>
+                  )}
+                  {podeDevolverRececao && (
+                    <button
+                      disabled={aProcessar}
+                      onClick={() => setMostrarDevolucao((v) => !v)}
+                      className="botao-outline-tema" style={estilos.botaoSecundario}
+                    >
+                      DEVOLVER
+                    </button>
+                  )}
+                  {podeValidarChefeGabinete && (
+                    <button
+                      disabled={aProcessar}
+                      onClick={() => id && executarAcao(() => validarChefeGabineteDocumento(id))}
+                      className="botao-vermelho-alerta" style={estilos.botaoPrimario}
+                    >
+                      VALIDAR
+                    </button>
+                  )}
+                  {podeDevolverSecr && (
+                    <button
+                      disabled={aProcessar}
+                      onClick={() => setMostrarDevolucao((v) => !v)}
+                      className="botao-outline-tema" style={estilos.botaoSecundario}
+                    >
+                      DEVOLVER
                     </button>
                   )}
                   {podeIniciarAnalise && (
@@ -583,7 +620,7 @@ export function DetalheDocumento() {
                       onClick={() => id && executarAcao(() => validarServicoDocumento(id))}
                       className="botao-vermelho-alerta" style={estilos.botaoPrimario}
                     >
-                      Validar (concluir análise)
+                      VALIDAR
                     </button>
                   )}
                   {podeArquivar && (
@@ -632,6 +669,37 @@ export function DetalheDocumento() {
                       className="botao-outline-tema" style={estilos.botaoSecundario}
                     >
                       Confirmar rejeição
+                    </button>
+                  </div>
+                )}
+
+                {(podeDevolverRececao || podeDevolverSecr) && mostrarDevolucao && (
+                  <div style={estilos.subCartao}>
+                    <label style={estilos.rotuloDado}>
+                      Motivo (opcional)
+                      <textarea
+                        value={motivoDevolucao}
+                        onChange={(e) => setMotivoDevolucao(e.target.value)}
+                        style={estilos.textarea}
+                        rows={3}
+                      />
+                    </label>
+                    <button
+                      disabled={aProcessar}
+                      onClick={() =>
+                        id &&
+                        executarAcao(() =>
+                          podeDevolverRececao
+                            ? devolverRececaoDocumento(id, motivoDevolucao || undefined)
+                            : devolverSecrDocumento(id, motivoDevolucao || undefined)
+                        ).then(() => {
+                          setMotivoDevolucao("");
+                          setMostrarDevolucao(false);
+                        })
+                      }
+                      className="botao-outline-tema" style={estilos.botaoSecundario}
+                    >
+                      Confirmar devolução
                     </button>
                   </div>
                 )}

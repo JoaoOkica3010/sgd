@@ -32,8 +32,25 @@ class WorkflowService
             'submetido' => [
                 'validado_secretariado' => fn (Documento $doc, Utilizador $u) =>
                     $u->perfil?->sigla === 'SECR',
+                // DEVOLVER (SECR -> Receção): correção simples, sem
+                // justificação obrigatória e sem intervenção do ADMIN —
+                // distinto de "rejeitar", que continua a exigir
+                // justificação e só é revertido pelo ADMIN (ver reabrir()).
+                'recepcao' => fn (Documento $doc, Utilizador $u) =>
+                    $u->perfil?->sigla === 'SECR',
             ],
             'validado_secretariado' => [
+                // VALIDAR (CG): novo estado de apreciação do Chefe de
+                // Gabinete, intercalado entre a SECR e o MIN. O MIN passa a
+                // agir sobre "validado_chefe_gabinete", não mais aqui.
+                'validado_chefe_gabinete' => fn (Documento $doc, Utilizador $u) =>
+                    $u->perfil?->sigla === 'CG',
+                // DEVOLVER (CG -> SECR): mesma lógica leve da devolução
+                // SECR -> Receção acima.
+                'submetido' => fn (Documento $doc, Utilizador $u) =>
+                    $u->perfil?->sigla === 'CG',
+            ],
+            'validado_chefe_gabinete' => [
                 'encaminhado' => fn (Documento $doc, Utilizador $u) =>
                     $u->perfil?->sigla === 'MIN',
             ],

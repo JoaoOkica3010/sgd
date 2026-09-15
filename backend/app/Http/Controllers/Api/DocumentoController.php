@@ -95,6 +95,76 @@ class DocumentoController extends Controller
     }
 
     /**
+     * POST /documentos/{documento}/devolver-recepcao
+     * DEVOLVER (SECR -> Receção): correção simples, sem justificação
+     * obrigatória — distinto de rejeitar (justificação obrigatória, só o
+     * ADMIN reabre). O "motivo" aqui é opcional e, quando indicado, fica
+     * registado como observação de sistema, tal como já acontece com
+     * "[Encaminhamento]" em encaminhar() abaixo.
+     */
+    public function devolverRececao(Request $request, Documento $documento)
+    {
+        Gate::authorize('devolverRececao', $documento);
+
+        $dados = $request->validate([
+            'motivo' => ['nullable', 'string'],
+        ]);
+
+        $documento = $this->workflow->transitar($documento, Documento::ESTADO_RECEPCAO, $request->user());
+
+        if (! empty($dados['motivo'])) {
+            \App\Models\Comentario::create([
+                'documento_id' => $documento->id,
+                'autor_id' => $request->user()->id,
+                'texto' => '[Devolução] '.$dados['motivo'],
+                'estado_criacao' => $documento->estado_atual,
+                'criado_em' => now(),
+            ]);
+        }
+
+        return $documento;
+    }
+
+    /**
+     * POST /documentos/{documento}/validar-chefe-gabinete
+     * VALIDAR (Chefe de Gabinete): validado_secretariado -> validado_chefe_gabinete.
+     */
+    public function validarChefeGabinete(Request $request, Documento $documento)
+    {
+        Gate::authorize('validarChefeGabinete', $documento);
+
+        return $this->workflow->transitar($documento, Documento::ESTADO_VALIDADO_CG, $request->user());
+    }
+
+    /**
+     * POST /documentos/{documento}/devolver-secr
+     * DEVOLVER (Chefe de Gabinete -> SECR) — mesma lógica leve de
+     * devolverRececao() acima.
+     */
+    public function devolverSecr(Request $request, Documento $documento)
+    {
+        Gate::authorize('devolverSecr', $documento);
+
+        $dados = $request->validate([
+            'motivo' => ['nullable', 'string'],
+        ]);
+
+        $documento = $this->workflow->transitar($documento, Documento::ESTADO_SUBMETIDO, $request->user());
+
+        if (! empty($dados['motivo'])) {
+            \App\Models\Comentario::create([
+                'documento_id' => $documento->id,
+                'autor_id' => $request->user()->id,
+                'texto' => '[Devolução] '.$dados['motivo'],
+                'estado_criacao' => $documento->estado_atual,
+                'criado_em' => now(),
+            ]);
+        }
+
+        return $documento;
+    }
+
+    /**
      * POST /documentos/{documento}/submeter
      * Primeira transição do workflow: recepcao -> submetido.
      */

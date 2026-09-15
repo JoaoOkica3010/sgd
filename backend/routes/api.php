@@ -34,6 +34,9 @@ Route::prefix('v1')->group(function () {
         Route::put('/documentos/{documento}', [DocumentoController::class, 'update']);
         Route::post('/documentos/{documento}/submeter', [DocumentoController::class, 'submeter']);
         Route::post('/documentos/{documento}/validar', [DocumentoController::class, 'validar']);
+        Route::post('/documentos/{documento}/devolver-recepcao', [DocumentoController::class, 'devolverRececao']);
+        Route::post('/documentos/{documento}/validar-chefe-gabinete', [DocumentoController::class, 'validarChefeGabinete']);
+        Route::post('/documentos/{documento}/devolver-secr', [DocumentoController::class, 'devolverSecr']);
         Route::post('/documentos/{documento}/encaminhar', [DocumentoController::class, 'encaminhar']);
         Route::post('/documentos/{documento}/iniciar-analise', [DocumentoController::class, 'iniciarAnalise']);
         Route::post('/documentos/{documento}/validar-servico', [DocumentoController::class, 'validarServico']);

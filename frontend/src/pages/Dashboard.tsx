@@ -140,7 +140,8 @@ export function Dashboard() {
   const contadores = useMemo(() => {
     const contar = (estado: string) => documentos.filter((d) => d.estado_atual === estado).length;
     return {
-      paraDespacho: contar("validado_secretariado"),
+      paraApreciacaoCG: contar("validado_secretariado"),
+      paraDespacho: contar("validado_chefe_gabinete"),
       encaminhados: contar("encaminhado"),
       emAnalise: contar("em_analise"),
       paraArquivo: contar("validado_servico"),
@@ -217,10 +218,17 @@ export function Dashboard() {
           <>
             <div className="grelha-kpi">
               <CartaoKpi
+                cor="apreciacao-cg"
+                rotulo="Para apreciação"
+                valor={contadores.paraApreciacaoCG}
+                legenda="validados pelo Secretariado"
+                aCarregar={aCarregar}
+              />
+              <CartaoKpi
                 cor="despacho"
                 rotulo="Para despacho"
                 valor={contadores.paraDespacho}
-                legenda="validados pelo Secretariado"
+                legenda="validados pelo Chefe de Gabinete"
                 aCarregar={aCarregar}
               />
               <CartaoKpi
@@ -441,7 +449,8 @@ function precisaAcaoDoUtilizador(doc: Documento, perfil?: string): boolean {
   const estado = doc.estado_atual;
   if (estado === "recepcao" && (perfil === "RECEP" || perfil === "SECR")) return true;
   if (estado === "submetido" && perfil === "SECR") return true;
-  if (estado === "validado_secretariado" && perfil === "MIN") return true;
+  if (estado === "validado_secretariado" && perfil === "CG") return true;
+  if (estado === "validado_chefe_gabinete" && perfil === "MIN") return true;
   const perfilDeServico = perfil !== "RECEP" && perfil !== "SECR" && perfil !== "MIN" && perfil !== "ARQ" && perfil !== "CONSULTA";
   if (estado === "encaminhado" && perfilDeServico) return true;
   if (estado === "em_analise" && perfilDeServico) return true;
@@ -461,6 +470,7 @@ function estiloContornoEstado(rotulo: string): React.CSSProperties {
       return { borderColor: "#a13a3a", color: "#a13a3a" };
     case "Validado (serviço)":
     case "Validado (Secretariado)":
+    case "Validado (Chefe de Gabinete)":
       return { borderColor: "#d97a2f", color: "#a06a1f" };
     case "Arquivado":
       return { borderColor: "#8a8371", color: "#6b6350" };

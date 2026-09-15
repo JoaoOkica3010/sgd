@@ -67,9 +67,37 @@ class DocumentoPolicy
         return $utilizador->possuiPerfil('SECR') && $documento->estado_atual === Documento::ESTADO_SUBMETIDO;
     }
 
+    /**
+     * DEVOLVER (SECR -> Receção): correção simples, sem justificação
+     * obrigatória. Distinto de rejeitar() — ver nota em WorkflowService::transicoes().
+     */
+    public function devolverRececao(Utilizador $utilizador, Documento $documento): bool
+    {
+        return $utilizador->possuiPerfil('SECR') && $documento->estado_atual === Documento::ESTADO_SUBMETIDO;
+    }
+
+    /**
+     * VALIDAR (Chefe de Gabinete): novo estado intercalado entre a SECR e
+     * o MIN. O perfil CG já existe no SGD como Serviço/Departamento
+     * pós-MIN (ver PerfilSeeder/ServicoSeeder) — esta é uma segunda
+     * atuação do mesmo perfil, agora antes da decisão do Ministro.
+     */
+    public function validarChefeGabinete(Utilizador $utilizador, Documento $documento): bool
+    {
+        return $utilizador->possuiPerfil('CG') && $documento->estado_atual === Documento::ESTADO_VALIDADO_SECRETARIADO;
+    }
+
+    /**
+     * DEVOLVER (CG -> SECR): mesma lógica leve de devolverRececao().
+     */
+    public function devolverSecr(Utilizador $utilizador, Documento $documento): bool
+    {
+        return $utilizador->possuiPerfil('CG') && $documento->estado_atual === Documento::ESTADO_VALIDADO_SECRETARIADO;
+    }
+
     public function encaminhar(Utilizador $utilizador, Documento $documento): bool
     {
-        return $utilizador->possuiPerfil('MIN') && $documento->estado_atual === Documento::ESTADO_VALIDADO_SECRETARIADO;
+        return $utilizador->possuiPerfil('MIN') && $documento->estado_atual === Documento::ESTADO_VALIDADO_CG;
     }
 
     /**
@@ -81,7 +109,7 @@ class DocumentoPolicy
     public function assinar(Utilizador $utilizador, Documento $documento): bool
     {
         return $utilizador->possuiPerfil('MIN')
-            && $documento->estado_atual === Documento::ESTADO_VALIDADO_SECRETARIADO
+            && $documento->estado_atual === Documento::ESTADO_VALIDADO_CG
             && ! $documento->assinatura()->exists();
     }
 
