@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AnexoController;
+use App\Http\Controllers\Api\AtividadeController;
 use App\Http\Controllers\Api\AuditoriaController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ComentarioController;
@@ -26,6 +27,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::post('/auth/refresh', [AuthController::class, 'refresh']);
         Route::get('/utilizador', fn (Request $r) => $r->user()->load('perfil'));
+
+        // ---- Atividade (painel "Atividade" do Dashboard) ----
+        Route::get('/atividade/recente', [AtividadeController::class, 'recente']);
 
         // ---- Documentos ----
         Route::get('/documentos', [DocumentoController::class, 'index']);

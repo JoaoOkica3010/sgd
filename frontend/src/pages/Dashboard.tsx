@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { listarDocumentos } from "../api/documentos";
 import { gerarRelatorio, type TipoRelatorioId } from "../api/relatorios";
+import { listarAtividadeRecente, type AtividadeItem } from "../api/atividade";
 import { ROTULOS_ESTADO, type Documento } from "../types";
 import { useAuth } from "../auth/AuthContext";
 import { Cabecalho } from "../components/Cabecalho";
@@ -20,18 +21,15 @@ import { Rodape } from "../components/Rodape";
  *     negócio combinada com o cliente: Muito Urgente = 1 dia,
  *     Urgente = 2 dias, Normal = 5 dias). Documentos arquivados ou
  *     rejeitados não contam, mesmo que o prazo já tenha passado.
- *
- * Uma secção do design NÃO tem, para já, uma fonte de dados real
- * no código que me enviou, por isso aparece com um estado vazio
- * explicativo em vez de números inventados:
- *   - "Atividade" — precisa de um feed de auditoria (quem fez o quê
- *     e quando, em todos os documentos). Sugestão: um endpoint tipo
- *     `listarAtividadeRecente(): Promise<AtividadeItem[]>`.
- *
- * Quando esse ponto existir na API, basta substituir o bloco
- * assinalado com "TODO" abaixo.
+ *   - "Atividade": lê /atividade/recente (AtividadeController, backend),
+ *     que resume as últimas entradas de auditoria em frases simples.
+ *     Sem infraestrutura de WebSockets no projeto, a "atualização em
+ *     tempo real" é feita por sondagem (polling) a cada 10s — ver
+ *     INTERVALO_ATIVIDADE_MS abaixo.
  * ---------------------------------------------------------------
  */
+
+const INTERVALO_ATIVIDADE_MS = 10_000;
 
 const ITENS_POR_PAGINA = 2;
 
@@ -111,6 +109,17 @@ function diasEmAtraso(doc: Documento): number {
   return Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
 }
 
+function tempoRelativo(iso: string): string {
+  const diffSeg = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+  if (diffSeg < 60) return "agora mesmo";
+  const diffMin = Math.round(diffSeg / 60);
+  if (diffMin < 60) return `há ${diffMin} min`;
+  const diffHoras = Math.round(diffMin / 60);
+  if (diffHoras < 24) return `há ${diffHoras} h`;
+  const diffDias = Math.round(diffHoras / 24);
+  return `há ${diffDias} ${diffDias === 1 ? "dia" : "dias"}`;
+}
+
 export function Dashboard() {
   const { utilizador } = useAuth();
   const [documentos, setDocumentos] = useState<Documento[]>([]);
@@ -119,8 +128,22 @@ export function Dashboard() {
   const [pagina, setPagina] = useState(1);
   const [aba, setAba] = useState<"dashboard" | "relatorios">("dashboard");
 
+  const [atividade, setAtividade] = useState<AtividadeItem[]>([]);
+  const [aCarregarAtividade, setACarregarAtividade] = useState(true);
+  const [erroAtividade, setErroAtividade] = useState<string | null>(null);
+  const [ultimaAtualizacaoAtividade, setUltimaAtualizacaoAtividade] = useState<Date | null>(null);
+
   useEffect(() => {
     carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // "Tempo real" sem WebSockets: o painel sonda o endpoint a cada
+  // INTERVALO_ATIVIDADE_MS enquanto a página estiver aberta.
+  useEffect(() => {
+    carregarAtividade();
+    const temporizador = setInterval(carregarAtividade, INTERVALO_ATIVIDADE_MS);
+    return () => clearInterval(temporizador);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -134,6 +157,19 @@ export function Dashboard() {
       setErro("Não foi possível carregar os indicadores.");
     } finally {
       setACarregar(false);
+    }
+  }
+
+  async function carregarAtividade() {
+    try {
+      const itens = await listarAtividadeRecente();
+      setAtividade(itens);
+      setErroAtividade(null);
+      setUltimaAtualizacaoAtividade(new Date());
+    } catch {
+      setErroAtividade("Não foi possível carregar a atividade recente.");
+    } finally {
+      setACarregarAtividade(false);
     }
   }
 
@@ -326,11 +362,54 @@ export function Dashboard() {
               </section>
 
               <section style={estilos.colunaAtividade}>
-                <h2 style={estilos.tituloSeccao}>Atividade</h2>
-                {/* TODO: substituir por um feed real quando existir um endpoint
-                    de auditoria (ex.: listarAtividadeRecente()). */}
-                <div style={estilos.estadoVazioAtividade}>
-                  Ainda não há uma fonte de atividade recente ligada a este painel.
+                <div style={estilos.cabecalhoAtividade}>
+                  <h2 style={{ ...estilos.tituloSeccao, margin: 0 }}>Atividade</h2>
+                  <span style={estilos.indicadorAoVivo}>
+                    <span style={estilos.pontoAoVivo} />
+                    {ultimaAtualizacaoAtividade
+                      ? `atualizado ${tempoRelativo(ultimaAtualizacaoAtividade.toISOString())}`
+                      : "a atualizar..."}
+                  </span>
+                </div>
+
+                <div style={estilos.cartaoAtividade}>
+                  {aCarregarAtividade && <p style={estilos.mensagemVaziaAtividade}>A carregar...</p>}
+
+                  {!aCarregarAtividade && erroAtividade && (
+                    <p style={{ ...estilos.mensagemVaziaAtividade, color: "#b3261e" }}>{erroAtividade}</p>
+                  )}
+
+                  {!aCarregarAtividade && !erroAtividade && atividade.length === 0 && (
+                    <p style={estilos.mensagemVaziaAtividade}>Ainda não há atividade registada.</p>
+                  )}
+
+                  {!aCarregarAtividade &&
+                    !erroAtividade &&
+                    atividade.map((item, i) => (
+                      <div
+                        key={item.id}
+                        style={{
+                          ...estilos.linhaAtividade,
+                          borderBottom: i === atividade.length - 1 ? "none" : estilos.linhaAtividade.borderBottom,
+                        }}
+                      >
+                        <span style={estilos.pontoAtividade} />
+                        <div style={estilos.corpoAtividade}>
+                          <div style={estilos.textoAtividade}>
+                            <strong>{item.utilizador}</strong> {item.descricao}
+                            {item.documento && (
+                              <>
+                                {" "}
+                                <Link to={`/documentos/${item.documento.id}`} style={estilos.linkAtividade}>
+                                  {item.documento.numero_registo}
+                                </Link>
+                              </>
+                            )}
+                          </div>
+                          <div style={estilos.tempoAtividade}>{tempoRelativo(item.ocorrido_em)}</div>
+                        </div>
+                      </div>
+                    ))}
                 </div>
 
                 <div
@@ -781,6 +860,75 @@ const estilos: Record<string, React.CSSProperties> = {
     fontSize: 13,
     color: "#8a8371",
     boxShadow: "0 8px 20px rgba(0, 0, 0, 0.05)",
+  },
+  cabecalhoAtividade: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  indicadorAoVivo: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    fontSize: 11,
+    color: "#8a8371",
+  },
+  pontoAoVivo: {
+    width: 7,
+    height: 7,
+    borderRadius: "50%",
+    backgroundColor: "#3f6b34",
+    display: "inline-block",
+  },
+  cartaoAtividade: {
+    backgroundColor: "#f5f2e9",
+    borderRadius: 16,
+    padding: "6px 20px",
+    boxShadow: "0 8px 20px rgba(0, 0, 0, 0.05)",
+    maxHeight: 360,
+    overflowY: "auto",
+  },
+  mensagemVaziaAtividade: {
+    fontSize: 13,
+    color: "#8a8371",
+    padding: "14px 0",
+    margin: 0,
+  },
+  linhaAtividade: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: "12px 0",
+    borderBottom: "1px solid #e9e4d5",
+  },
+  pontoAtividade: {
+    width: 7,
+    height: 7,
+    borderRadius: "50%",
+    backgroundColor: "var(--cor-primaria)",
+    flexShrink: 0,
+    marginTop: 6,
+  },
+  corpoAtividade: {
+    flex: 1,
+    minWidth: 0,
+  },
+  textoAtividade: {
+    fontSize: 13,
+    color: "#2b2b2b",
+    lineHeight: 1.4,
+  },
+  linkAtividade: {
+    color: "var(--cor-primaria)",
+    fontWeight: 700,
+    textDecoration: "none",
+  },
+  tempoAtividade: {
+    fontSize: 11,
+    color: "#a39c8b",
+    marginTop: 2,
   },
   cartaoForaPrazo: {
     backgroundColor: "#c94f2f",
