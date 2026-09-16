@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import {
   listarUtilizadores,
@@ -234,7 +234,8 @@ export function AdminUtilizadores({ semNavbar = false }: { semNavbar?: boolean }
               <span style={{ flex: 2, textAlign: "right" }}>Ações</span>
             </div>
             {utilizadores.map((u) => (
-              <div key={u.id} style={estilos.linhaTabela}>
+              <Fragment key={u.id}>
+              <div style={estilos.linhaTabela}>
                 <span style={{ flex: 2, fontWeight: 600 }}>{u.nome}</span>
                 <span style={{ flex: 2, color: "#6b6350" }}>{u.email}</span>
                 <span style={{ flex: 1 }}>
@@ -289,51 +290,52 @@ export function AdminUtilizadores({ semNavbar = false }: { semNavbar?: boolean }
                   )}
                 </span>
               </div>
-            ))}
-            {emEdicaoAssinatura && (
-              <div style={estilos.painelAssinatura}>
-                <div style={estilos.painelAssinaturaTitulo}>
-                  Assinatura digitalizada — {emEdicaoAssinatura.nome}
-                </div>
-                <p style={estilos.painelAssinaturaTexto}>
-                  Imagem PNG ou JPEG (até 3&nbsp;MB), de preferência com fundo transparente.
-                  Passa a aparecer sobre o selo de assinatura digital, na Ficha e nos detalhes
-                  dos documentos que este utilizador assinar.
-                </p>
-                <div style={estilos.painelAssinaturaLinha}>
-                  {emEdicaoAssinatura.tem_assinatura_imagem && (
-                    <div style={estilos.previaAssinatura}>
-                      <AssinaturaImagem utilizadorId={emEdicaoAssinatura.id} altura={44} />
-                    </div>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg"
-                    onChange={(e) => setFicheiroAssinatura(e.target.files?.[0] ?? null)}
-                    style={estilos.inputFicheiro}
-                  />
-                </div>
-                {erroAssinatura && <p style={estilos.erroTexto}>{erroAssinatura}</p>}
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    onClick={submeterAssinatura}
-                    className="botao-vermelho-alerta"
-                    style={estilos.botaoPrimario}
-                    disabled={!ficheiroAssinatura || aGuardarAssinatura}
-                  >
-                    {aGuardarAssinatura ? "A carregar…" : "Carregar"}
-                  </button>
-                  {emEdicaoAssinatura.tem_assinatura_imagem && (
-                    <button onClick={() => eliminarAssinatura(emEdicaoAssinatura)} style={estilos.botaoSecundario}>
-                      Remover assinatura
+              {emEdicaoAssinatura?.id === u.id && (
+                <div style={estilos.painelAssinatura}>
+                  <div style={estilos.painelAssinaturaTitulo}>
+                    Assinatura digitalizada — {emEdicaoAssinatura.nome}
+                  </div>
+                  <p style={estilos.painelAssinaturaTexto}>
+                    Imagem PNG ou JPEG (até 3&nbsp;MB), de preferência com fundo transparente.
+                    Passa a aparecer sobre o selo de assinatura digital, na Ficha e nos detalhes
+                    dos documentos que este utilizador assinar.
+                  </p>
+                  <div style={estilos.painelAssinaturaLinha}>
+                    {emEdicaoAssinatura.tem_assinatura_imagem && (
+                      <div style={estilos.previaAssinatura}>
+                        <AssinaturaImagem utilizadorId={emEdicaoAssinatura.id} altura={44} />
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg"
+                      onChange={(e) => setFicheiroAssinatura(e.target.files?.[0] ?? null)}
+                      style={estilos.inputFicheiro}
+                    />
+                  </div>
+                  {erroAssinatura && <p style={estilos.erroTexto}>{erroAssinatura}</p>}
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={submeterAssinatura}
+                      className="botao-vermelho-alerta"
+                      style={estilos.botaoPrimario}
+                      disabled={!ficheiroAssinatura || aGuardarAssinatura}
+                    >
+                      {aGuardarAssinatura ? "A carregar…" : "Carregar"}
                     </button>
-                  )}
-                  <button onClick={() => setEmEdicaoAssinatura(null)} style={estilos.botaoSecundario}>
-                    Fechar
-                  </button>
+                    {emEdicaoAssinatura.tem_assinatura_imagem && (
+                      <button onClick={() => eliminarAssinatura(emEdicaoAssinatura)} style={estilos.botaoSecundario}>
+                        Remover assinatura
+                      </button>
+                    )}
+                    <button onClick={() => setEmEdicaoAssinatura(null)} style={estilos.botaoSecundario}>
+                      Fechar
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+              </Fragment>
+            ))}
           </div>
         )}
       </main>
