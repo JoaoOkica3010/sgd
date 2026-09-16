@@ -1,10 +1,17 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { listarUtilizadores, criarUtilizador, atualizarUtilizador } from "../../api/utilizadores";
+import {
+  listarUtilizadores,
+  criarUtilizador,
+  atualizarUtilizador,
+  carregarAssinaturaImagem,
+  removerAssinaturaImagem,
+} from "../../api/utilizadores";
 import { listarPerfis, type PerfilResumo } from "../../api/perfis";
 import type { UtilizadorAdmin } from "../../types";
 import { Cabecalho } from "../../components/Cabecalho";
 import { Rodape } from "../../components/Rodape";
+import { AssinaturaImagem } from "../../components/AssinaturaImagem";
 
 export function AdminUtilizadores({ semNavbar = false }: { semNavbar?: boolean } = {}) {
   const [utilizadores, setUtilizadores] = useState<UtilizadorAdmin[]>([]);
@@ -22,6 +29,11 @@ export function AdminUtilizadores({ semNavbar = false }: { semNavbar?: boolean }
 
   const [emEdicao, setEmEdicao] = useState<UtilizadorAdmin | null>(null);
   const [perfilEdicao, setPerfilEdicao] = useState<number | "">("");
+
+  const [emEdicaoAssinatura, setEmEdicaoAssinatura] = useState<UtilizadorAdmin | null>(null);
+  const [ficheiroAssinatura, setFicheiroAssinatura] = useState<File | null>(null);
+  const [aGuardarAssinatura, setAGuardarAssinatura] = useState(false);
+  const [erroAssinatura, setErroAssinatura] = useState<string | null>(null);
 
   useEffect(() => {
     carregar();
@@ -82,6 +94,38 @@ export function AdminUtilizadores({ semNavbar = false }: { semNavbar?: boolean }
       setEmEdicao(null);
     } catch {
       setErro("Não foi possível atualizar o perfil do utilizador.");
+    }
+  }
+
+  function abrirAssinatura(u: UtilizadorAdmin) {
+    setEmEdicaoAssinatura((atual) => (atual?.id === u.id ? null : u));
+    setFicheiroAssinatura(null);
+    setErroAssinatura(null);
+  }
+
+  async function submeterAssinatura() {
+    if (!emEdicaoAssinatura || !ficheiroAssinatura) return;
+    setErroAssinatura(null);
+    setAGuardarAssinatura(true);
+    try {
+      const atualizado = await carregarAssinaturaImagem(emEdicaoAssinatura.id, ficheiroAssinatura);
+      setUtilizadores((atual) => atual.map((u) => (u.id === atualizado.id ? atualizado : u)));
+      setEmEdicaoAssinatura(null);
+      setFicheiroAssinatura(null);
+    } catch (e: any) {
+      setErroAssinatura(e?.response?.data?.error?.message ?? "Não foi possível carregar a assinatura.");
+    } finally {
+      setAGuardarAssinatura(false);
+    }
+  }
+
+  async function eliminarAssinatura(u: UtilizadorAdmin) {
+    try {
+      const atualizado = await removerAssinaturaImagem(u.id);
+      setUtilizadores((atual) => atual.map((x) => (x.id === atualizado.id ? atualizado : x)));
+      setEmEdicaoAssinatura(null);
+    } catch {
+      setErroAssinatura("Não foi possível remover a assinatura.");
     }
   }
 
@@ -235,6 +279,9 @@ export function AdminUtilizadores({ semNavbar = false }: { semNavbar?: boolean }
                       <button onClick={() => iniciarEdicao(u)} style={estilos.botaoSecundario}>
                         Alterar perfil
                       </button>
+                      <button onClick={() => abrirAssinatura(u)} style={estilos.botaoSecundario}>
+                        Assinatura
+                      </button>
                       <button onClick={() => alternarAtivo(u)} style={estilos.botaoSecundario}>
                         {u.ativo ? "Desativar" : "Ativar"}
                       </button>
@@ -243,6 +290,50 @@ export function AdminUtilizadores({ semNavbar = false }: { semNavbar?: boolean }
                 </span>
               </div>
             ))}
+            {emEdicaoAssinatura && (
+              <div style={estilos.painelAssinatura}>
+                <div style={estilos.painelAssinaturaTitulo}>
+                  Assinatura digitalizada — {emEdicaoAssinatura.nome}
+                </div>
+                <p style={estilos.painelAssinaturaTexto}>
+                  Imagem PNG ou JPEG (até 3&nbsp;MB), de preferência com fundo transparente.
+                  Passa a aparecer sobre o selo de assinatura digital, na Ficha e nos detalhes
+                  dos documentos que este utilizador assinar.
+                </p>
+                <div style={estilos.painelAssinaturaLinha}>
+                  {emEdicaoAssinatura.tem_assinatura_imagem && (
+                    <div style={estilos.previaAssinatura}>
+                      <AssinaturaImagem utilizadorId={emEdicaoAssinatura.id} altura={44} />
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg"
+                    onChange={(e) => setFicheiroAssinatura(e.target.files?.[0] ?? null)}
+                    style={estilos.inputFicheiro}
+                  />
+                </div>
+                {erroAssinatura && <p style={estilos.erroTexto}>{erroAssinatura}</p>}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={submeterAssinatura}
+                    className="botao-vermelho-alerta"
+                    style={estilos.botaoPrimario}
+                    disabled={!ficheiroAssinatura || aGuardarAssinatura}
+                  >
+                    {aGuardarAssinatura ? "A carregar…" : "Carregar"}
+                  </button>
+                  {emEdicaoAssinatura.tem_assinatura_imagem && (
+                    <button onClick={() => eliminarAssinatura(emEdicaoAssinatura)} style={estilos.botaoSecundario}>
+                      Remover assinatura
+                    </button>
+                  )}
+                  <button onClick={() => setEmEdicaoAssinatura(null)} style={estilos.botaoSecundario}>
+                    Fechar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>
@@ -345,4 +436,22 @@ const estilos: Record<string, React.CSSProperties> = {
   estadoBadge: { fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20 },
   estadoAtivo: { backgroundColor: "#e3f0e3", color: "#2e7d32" },
   estadoInativo: { backgroundColor: "#f2e3e3", color: "#b3261e" },
+  painelAssinatura: {
+    padding: "16px 20px",
+    backgroundColor: "#f5f2e9",
+    borderTop: "1px solid #e9e4d5",
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+  },
+  painelAssinaturaTitulo: { fontSize: 14, fontWeight: 700, color: "var(--cor-primaria)" },
+  painelAssinaturaTexto: { fontSize: 12.5, color: "#6b6350", maxWidth: 560, margin: 0 },
+  painelAssinaturaLinha: { display: "flex", alignItems: "center", gap: 16 },
+  previaAssinatura: {
+    backgroundColor: "#ffffff",
+    border: "1px solid #e9e4d5",
+    borderRadius: 8,
+    padding: "6px 12px",
+  },
+  inputFicheiro: { fontSize: 13 },
 };

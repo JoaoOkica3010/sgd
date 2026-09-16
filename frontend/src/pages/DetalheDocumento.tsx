@@ -16,6 +16,7 @@ import { ROTULOS_ESTADO, type Documento, type EstadoHistorico, type Servico } fr
 import { useAuth } from "../auth/AuthContext";
 import { Cabecalho } from "../components/Cabecalho";
 import { Rodape } from "../components/Rodape";
+import { AssinaturaImagem } from "../components/AssinaturaImagem";
 
 type Observacao = {
   id: number;
@@ -516,6 +517,12 @@ export function DetalheDocumento() {
               </div>
               {documento.assinatura && (
                 <div style={estilos.seloAssinatura}>
+                  {documento.assinatura.utilizador?.tem_assinatura_imagem && (
+                    <AssinaturaImagem
+                      utilizadorId={documento.assinatura.utilizador.id}
+                      alt={`Assinatura de ${documento.assinatura.utilizador.nome}`}
+                    />
+                  )}
                   <span style={estilos.seloIcone}>✓</span>
                   <div>
                     <div style={estilos.seloTitulo}>Documento assinado digitalmente</div>

@@ -1,4 +1,5 @@
 import { ROTULOS_ESTADO, type Documento, type EstadoHistorico } from "../types";
+import { AssinaturaImagem } from "./AssinaturaImagem";
 
 // Mesmo contrato de observação usado em DetalheDocumento.tsx.
 // Se vieres a extrair este tipo para um ficheiro partilhado (ex: types.ts),
@@ -171,6 +172,15 @@ export function FichaDocumento({ documento, historico, observacoes, aoImprimir }
         <h2 style={estilos.tituloSeccao}>Assinatura digital</h2>
         {assinatura ? (
           <>
+            {assinatura.utilizador?.tem_assinatura_imagem && (
+              <div style={estilos.assinaturaImagem}>
+                <AssinaturaImagem
+                  utilizadorId={assinatura.utilizador.id}
+                  altura={56}
+                  alt={`Assinatura de ${assinatura.utilizador.nome}`}
+                />
+              </div>
+            )}
             <div style={estilos.assinaturaTitulo}>Documento assinado digitalmente</div>
             <div style={estilos.assinaturaMeta}>
               {assinatura.utilizador?.nome ?? "—"} · {formatarData(assinatura.assinado_em)}
@@ -393,6 +403,9 @@ const estilos: Record<string, React.CSSProperties> = {
     fontSize: 9.5,
     color: "#6b6350",
     marginTop: 4,
+  },
+  assinaturaImagem: {
+    marginBottom: 6,
   },
   assinaturaTitulo: {
     fontSize: 14,

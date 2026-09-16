@@ -70,6 +70,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/utilizadores', [UtilizadorController::class, 'index']);
         Route::post('/utilizadores', [UtilizadorController::class, 'store']);
         Route::put('/utilizadores/{utilizador}', [UtilizadorController::class, 'update']);
+        Route::get('/utilizadores/{utilizador}/assinatura-imagem', [UtilizadorController::class, 'assinaturaImagem']);
+        Route::post('/utilizadores/{utilizador}/assinatura-imagem', [UtilizadorController::class, 'guardarAssinaturaImagem']);
+        Route::delete('/utilizadores/{utilizador}/assinatura-imagem', [UtilizadorController::class, 'removerAssinaturaImagem']);
         Route::get('/perfis', [PerfilController::class, 'index']);
         Route::get('/auditoria', [AuditoriaController::class, 'index']);
 

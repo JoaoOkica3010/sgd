@@ -18,17 +18,30 @@ class Utilizador extends Authenticatable
     protected $fillable = [
         'nome', 'email', 'password_hash', 'perfil_id',
         'ativo', 'duplo_fator_ativo', 'duplo_fator_segredo',
+        'assinatura_imagem_path',
     ];
 
     protected $hidden = [
-        'password_hash', 'duplo_fator_segredo',
+        'password_hash', 'duplo_fator_segredo', 'assinatura_imagem_path',
     ];
+
+    protected $appends = ['tem_assinatura_imagem'];
 
     protected $casts = [
         'ativo' => 'boolean',
         'duplo_fator_ativo' => 'boolean',
         'ultimo_login_em' => 'datetime',
     ];
+
+    /**
+     * Indica ao frontend se há uma assinatura digitalizada a mostrar,
+     * sem expor o caminho real de armazenamento (ver
+     * UtilizadorController::assinaturaImagem).
+     */
+    public function getTemAssinaturaImagemAttribute(): bool
+    {
+        return ! empty($this->assinatura_imagem_path);
+    }
 
     public function getAuthPassword(): string
     {

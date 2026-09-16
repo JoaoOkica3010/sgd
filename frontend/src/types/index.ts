@@ -33,6 +33,7 @@ export interface UtilizadorAdmin {
   ativo: boolean;
   perfil_id: number;
   perfil?: PerfilResumo;
+  tem_assinatura_imagem?: boolean;
 }
 
 export interface PaginaGenerica<T> {
@@ -72,7 +73,7 @@ export interface Documento {
   servico_destino_id?: number | null;
   anexos?: Anexo[];
   assinatura?: {
-    utilizador: { id: string; nome: string } | null;
+    utilizador: { id: string; nome: string; tem_assinatura_imagem?: boolean } | null;
     assinado_em: string;
   } | null;
 }
