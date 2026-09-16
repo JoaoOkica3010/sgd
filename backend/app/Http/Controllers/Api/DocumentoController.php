@@ -64,7 +64,7 @@ class DocumentoController extends Controller
     {
         Gate::authorize('ver', $documento);
 
-        return $documento->load(['servicoDestino', 'criadoPor', 'anexos', 'assinatura.utilizador:id,nome']);
+        return $documento->load(['servicoDestino', 'criadoPor', 'anexos', 'assinatura.utilizador:id,nome,assinatura_imagem_path']);
     }
 
     public function update(Request $request, Documento $documento)
@@ -338,7 +338,7 @@ class DocumentoController extends Controller
             'ocorrido_em' => now(),
         ]);
 
-        return $documento->fresh()->load('assinatura.utilizador:id,nome');
+        return $documento->fresh()->load('assinatura.utilizador:id,nome,assinatura_imagem_path');
     }
 
     public function arquivar(Request $request, Documento $documento)
