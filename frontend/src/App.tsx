@@ -4,6 +4,7 @@ import { TemaProvider } from "./config/tema";
 import { RotaProtegida } from "./auth/RotaProtegida";
 import { Login } from "./pages/Login";
 import { RecuperarAcesso } from "./pages/RecuperarAcesso";
+import { VerificarAssinatura } from "./pages/VerificarAssinatura";
 import { Dashboard } from "./pages/Dashboard";
 import { ListaDocumentos } from "./pages/ListaDocumentos";
 import { NovoDocumento } from "./pages/NovoDocumento";
@@ -22,6 +23,7 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/recuperar-acesso" element={<RecuperarAcesso />} />
+            <Route path="/verificar/:codigo" element={<VerificarAssinatura />} />
 
             <Route element={<RotaProtegida />}>
               <Route path="/dashboard" element={<Dashboard />} />

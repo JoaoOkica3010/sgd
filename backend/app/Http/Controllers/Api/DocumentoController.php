@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Assinatura;
 use App\Models\Documento;
 use App\Services\WorkflowService;
 use Illuminate\Http\Request;
@@ -322,10 +323,11 @@ class DocumentoController extends Controller
             'criado_por' => $documento->criado_por,
         ]));
 
-        \App\Models\Assinatura::create([
+        Assinatura::create([
             'documento_id' => $documento->id,
             'utilizador_id' => $request->user()->id,
             'hash_documento' => $hash,
+            'codigo_verificacao' => $this->gerarCodigoVerificacao(),
             'assinado_em' => now(),
         ]);
 
@@ -339,6 +341,23 @@ class DocumentoController extends Controller
         ]);
 
         return $documento->fresh()->load('assinatura.utilizador:id,nome,assinatura_imagem_path');
+    }
+
+    /**
+     * Código curto (ex.: "A1B2-C3D4-E5") para a página pública de
+     * verificação (VerificacaoController::mostrar) — evita confusão com
+     * o "0" e o "O" ou o "1" e o "I" ao ser lido/escrito à mão.
+     */
+    private function gerarCodigoVerificacao(): string
+    {
+        $alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+        do {
+            $letras = collect(range(1, 10))->map(fn () => $alfabeto[random_int(0, strlen($alfabeto) - 1)])->join('');
+            $codigo = implode('-', str_split($letras, 4));
+        } while (Assinatura::where('codigo_verificacao', $codigo)->exists());
+
+        return $codigo;
     }
 
     public function arquivar(Request $request, Documento $documento)

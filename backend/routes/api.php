@@ -11,12 +11,16 @@ use App\Http\Controllers\Api\PerfilController;
 use App\Http\Controllers\Api\RelatorioController;
 use App\Http\Controllers\Api\ServicoController;
 use App\Http\Controllers\Api\UtilizadorController;
+use App\Http\Controllers\Api\VerificacaoController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
 
     Route::get('/config', [ConfigController::class, 'index']);
+
+    // Página pública de verificação da assinatura (sem autenticação — ver Opção C).
+    Route::get('/verificar/{codigo}', [VerificacaoController::class, 'mostrar']);
 
     Route::post('/auth/login', [AuthController::class, 'login']);
     Route::post('/auth/password/forgot', [AuthController::class, 'forgotPassword']);
