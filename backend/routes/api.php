@@ -20,11 +20,15 @@ Route::prefix('v1')->group(function () {
     Route::get('/config', [ConfigController::class, 'index']);
 
     // Página pública de verificação da assinatura (sem autenticação — ver Opção C).
-    Route::get('/verificar/{codigo}', [VerificacaoController::class, 'mostrar']);
+    // Limitação generosa: o espaço de códigos é enorme (32^10), isto é só
+    // para travar abuso/varrimento automatizado, não é a proteção real.
+    Route::get('/verificar/{codigo}', [VerificacaoController::class, 'mostrar'])->middleware('throttle:30,1');
 
-    Route::post('/auth/login', [AuthController::class, 'login']);
-    Route::post('/auth/password/forgot', [AuthController::class, 'forgotPassword']);
-    Route::post('/auth/password/reset', [AuthController::class, 'resetPassword']);
+    // Sem sessão ainda, por isso sujeitas a força bruta se não fossem
+    // limitadas — 5 tentativas por minuto, por IP (o padrão do Laravel).
+    Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
+    Route::post('/auth/password/forgot', [AuthController::class, 'forgotPassword'])->middleware('throttle:5,1');
+    Route::post('/auth/password/reset', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
 
     Route::middleware('auth:sanctum')->group(function () {
 

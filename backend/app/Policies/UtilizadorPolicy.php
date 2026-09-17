@@ -7,16 +7,30 @@ use App\Models\Utilizador;
 class UtilizadorPolicy
 {
     /**
-     * Gate único usado hoje só por RelatorioController — apesar do nome,
-     * não abrange gestão de utilizadores/serviços (essa não usa este
-     * gate; ver rotas de administração em routes/api.php). Reservado ao
-     * SADMIN, ao ADMIN, e por autoridade hierárquica ao MIN e SG; o CG
-     * ganha acesso aqui também, por ser agora responsável por uma
-     * apreciação formal no circuito (novo estado "Validado (Chefe de
-     * Gabinete)", ver WorkflowService).
+     * Gate usada só por RelatorioController — o separador "Relatórios"
+     * do Dashboard é mostrado a qualquer utilizador autenticado, por
+     * isso esta gate cobre a autoridade hierárquica para ver relatórios
+     * agregados (não documentos individuais, que seguem DocumentoPolicy).
+     * O CG ganha acesso aqui também, por ser responsável por uma
+     * apreciação formal no circuito ("Validado (Chefe de Gabinete)",
+     * ver WorkflowService).
+     *
+     * Não confundir com administrarUtilizadores() abaixo — essa é que
+     * controla criar/editar utilizadores e assinaturas digitalizadas.
      */
     public function administrar(Utilizador $utilizador): bool
     {
         return $utilizador->possuiPerfil('SADMIN', 'ADMIN', 'MIN', 'SG', 'CG');
+    }
+
+    /**
+     * Gate usada por UtilizadorController (criar/editar utilizadores,
+     * ativar/desativar, assinatura digitalizada) — reservada a SADMIN e
+     * ADMIN, alinhada com a página de administração no frontend, que só
+     * é mostrada a esses perfis.
+     */
+    public function administrarUtilizadores(Utilizador $utilizador): bool
+    {
+        return $utilizador->possuiPerfil('SADMIN', 'ADMIN');
     }
 }
