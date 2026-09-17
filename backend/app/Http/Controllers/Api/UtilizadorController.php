@@ -23,7 +23,7 @@ class UtilizadorController extends Controller
      */
     public function index(Request $request)
     {
-        Gate::authorize('administrar', Utilizador::class);
+        Gate::authorize('administrarUtilizadores', Utilizador::class);
 
         return Utilizador::with('perfil')
             ->orderBy('nome')
@@ -35,7 +35,7 @@ class UtilizadorController extends Controller
      */
     public function store(Request $request)
     {
-        Gate::authorize('administrar', Utilizador::class);
+        Gate::authorize('administrarUtilizadores', Utilizador::class);
 
         $dados = $request->validate([
             'nome' => ['required', 'string', 'max:150'],
@@ -70,7 +70,7 @@ class UtilizadorController extends Controller
      */
     public function update(Request $request, Utilizador $utilizador)
     {
-        Gate::authorize('administrar', Utilizador::class);
+        Gate::authorize('administrarUtilizadores', Utilizador::class);
 
         $dados = $request->validate([
             'nome' => ['sometimes', 'string', 'max:150'],
@@ -132,7 +132,7 @@ class UtilizadorController extends Controller
      */
     public function guardarAssinaturaImagem(Request $request, Utilizador $utilizador)
     {
-        Gate::authorize('administrar', Utilizador::class);
+        Gate::authorize('administrarUtilizadores', Utilizador::class);
 
         $request->validate([
             'imagem' => ['required', 'file', 'max:3072'],
@@ -179,7 +179,7 @@ class UtilizadorController extends Controller
      */
     public function removerAssinaturaImagem(Request $request, Utilizador $utilizador)
     {
-        Gate::authorize('administrar', Utilizador::class);
+        Gate::authorize('administrarUtilizadores', Utilizador::class);
 
         if ($utilizador->assinatura_imagem_path) {
             Storage::disk(config('filesystems.default', 'local'))->delete($utilizador->assinatura_imagem_path);
