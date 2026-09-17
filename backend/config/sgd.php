@@ -5,6 +5,16 @@ return [
     'disco_anexos' => env('SGD_DISCO_ANEXOS', 'local'),
 
     /**
+     * Endereço pelo qual o SGD é alcançável de fora (ex.: o IP Tailscale
+     * da srv-sgd) — usado para construir o link/QR de verificação de
+     * assinaturas (VerificacaoController) de forma estável, em vez de
+     * depender do endereço que o browser de quem assina calhou usar
+     * (que pode ser só acessível na rede local). Sem barra final.
+     * Ex.: SGD_URL_PUBLICA=http://100.94.195.117
+     */
+    'url_publica' => rtrim((string) env('SGD_URL_PUBLICA', ''), '/'),
+
+    /**
      * Caminho para o executável do LibreOffice, usado para converter
      * anexos Word/Excel/PowerPoint em PDF para pré-visualização (ver
      * App\Services\ConversorOfficeService). Se ficar vazio, o serviço

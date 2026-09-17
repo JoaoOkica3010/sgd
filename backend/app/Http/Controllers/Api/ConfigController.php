@@ -26,6 +26,7 @@ class ConfigController extends Controller
             'sigla_instituicao' => $config->sigla_instituicao,
             'subtitulo' => $config->subtitulo,
             'selo' => $config->selo,
+            'url_publica' => config('sgd.url_publica'),
         ]);
     }
 

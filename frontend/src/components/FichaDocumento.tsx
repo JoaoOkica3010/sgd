@@ -1,6 +1,7 @@
 import { ROTULOS_ESTADO, type Documento, type EstadoHistorico } from "../types";
 import { AssinaturaImagem } from "./AssinaturaImagem";
 import { CodigoQR } from "./CodigoQR";
+import { useMarca } from "../config/marca";
 
 // Mesmo contrato de observação usado em DetalheDocumento.tsx.
 // Se vieres a extrair este tipo para um ficheiro partilhado (ex: types.ts),
@@ -38,6 +39,11 @@ function formatarData(iso: string) {
 
 export function FichaDocumento({ documento, historico, observacoes, aoImprimir }: FichaDocumentoProps) {
   const assinatura = documento.assinatura;
+  const marca = useMarca();
+  // SGD_URL_PUBLICA (ex.: IP Tailscale da srv-sgd) garante que o link/QR
+  // fica sempre acessível de fora, independentemente de quem assinou ter
+  // acedido pela rede local ou não — ver config/marca.ts.
+  const baseUrlVerificacao = marca.urlPublica || window.location.origin;
   const entradaCriacao = historico[0];
 
   // Mesmo sinal já usado para decidir como imprimir (ver imprimir() abaixo):
@@ -188,11 +194,11 @@ export function FichaDocumento({ documento, historico, observacoes, aoImprimir }
             </div>
             {assinatura.codigo_verificacao && (
               <div style={estilos.verificacaoLinha}>
-                <CodigoQR valor={`${window.location.origin}/verificar/${assinatura.codigo_verificacao}`} tamanho={72} />
+                <CodigoQR valor={`${baseUrlVerificacao}/verificar/${assinatura.codigo_verificacao}`} tamanho={72} />
                 <div>
                   <div style={estilos.verificacaoRotulo}>Verificar autenticidade</div>
                   <div style={estilos.verificacaoCodigo}>{assinatura.codigo_verificacao}</div>
-                  <div style={estilos.verificacaoUrl}>{window.location.origin}/verificar/…</div>
+                  <div style={estilos.verificacaoUrl}>{baseUrlVerificacao}/verificar/…</div>
                 </div>
               </div>
             )}
