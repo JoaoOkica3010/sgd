@@ -11,7 +11,7 @@ class Assinatura extends Model
 
     protected $table = 'assinaturas_documento';
 
-    protected $fillable = ['documento_id', 'utilizador_id', 'hash_documento', 'assinado_em'];
+    protected $fillable = ['documento_id', 'utilizador_id', 'hash_documento', 'codigo_verificacao', 'assinado_em'];
 
     protected $casts = [
         'assinado_em' => 'datetime',

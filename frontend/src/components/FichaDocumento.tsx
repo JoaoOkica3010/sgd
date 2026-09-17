@@ -1,5 +1,6 @@
 import { ROTULOS_ESTADO, type Documento, type EstadoHistorico } from "../types";
 import { AssinaturaImagem } from "./AssinaturaImagem";
+import { CodigoQR } from "./CodigoQR";
 
 // Mesmo contrato de observação usado em DetalheDocumento.tsx.
 // Se vieres a extrair este tipo para um ficheiro partilhado (ex: types.ts),
@@ -185,6 +186,16 @@ export function FichaDocumento({ documento, historico, observacoes, aoImprimir }
             <div style={estilos.assinaturaMeta}>
               {assinatura.utilizador?.nome ?? "—"} · {formatarData(assinatura.assinado_em)}
             </div>
+            {assinatura.codigo_verificacao && (
+              <div style={estilos.verificacaoLinha}>
+                <CodigoQR valor={`${window.location.origin}/verificar/${assinatura.codigo_verificacao}`} tamanho={72} />
+                <div>
+                  <div style={estilos.verificacaoRotulo}>Verificar autenticidade</div>
+                  <div style={estilos.verificacaoCodigo}>{assinatura.codigo_verificacao}</div>
+                  <div style={estilos.verificacaoUrl}>{window.location.origin}/verificar/…</div>
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <p style={estilos.semDados}>Este documento ainda não foi assinado digitalmente.</p>
@@ -416,5 +427,32 @@ const estilos: Record<string, React.CSSProperties> = {
   assinaturaMeta: {
     fontSize: 12,
     color: "#8a8371",
+  },
+  verificacaoLinha: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTop: "1px dashed #ddd6c4",
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+  },
+  verificacaoRotulo: {
+    fontSize: 10.5,
+    fontWeight: 700,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    color: "#8a8371",
+  },
+  verificacaoCodigo: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: "#2b2b2b",
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+  verificacaoUrl: {
+    fontSize: 9.5,
+    color: "#8a8371",
+    marginTop: 2,
   },
 };

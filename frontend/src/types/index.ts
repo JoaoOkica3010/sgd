@@ -75,6 +75,7 @@ export interface Documento {
   assinatura?: {
     utilizador: { id: string; nome: string; tem_assinatura_imagem?: boolean } | null;
     assinado_em: string;
+    codigo_verificacao?: string | null;
   } | null;
 }
 
