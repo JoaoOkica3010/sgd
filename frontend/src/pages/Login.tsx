@@ -140,6 +140,26 @@ export function Login() {
                 {aCarregar ? "A entrar..." : "Entrar"}
               </button>
             </form>
+
+            <div style={estilos.avisoConfidencialidade}>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+                style={estilos.avisoIcone}
+              >
+                <rect x="5" y="11" width="14" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+                <path d="M8 11V7a4 4 0 018 0v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+              <p style={estilos.avisoTexto}>
+                <strong>Acesso restrito.</strong> Este sistema destina-se exclusivamente a
+                utilizadores autorizados do MTTED. Os documentos e dados aqui geridos são
+                confidenciais; o acesso e a atividade ficam sujeitos a registo. A utilização
+                indevida está sujeita a medidas disciplinares e legais.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -380,5 +400,25 @@ const estilos: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     borderRadius: 0,
     cursor: "pointer",
+  },
+  avisoConfidencialidade: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 10,
+    marginTop: 20,
+    paddingTop: 16,
+    borderTop: "1px solid #ddd6c4",
+  },
+  avisoIcone: {
+    flexShrink: 0,
+    marginTop: 2,
+    color: "#7a7364",
+  },
+  avisoTexto: {
+    margin: 0,
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 11.5,
+    lineHeight: 1.6,
+    color: "#7a7364",
   },
 };
